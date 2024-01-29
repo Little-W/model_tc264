@@ -134,6 +134,7 @@ void UART1_RX_IRQHandler(void)
      //if(!Get_Out_Flag)
     unsigned char data,flag_code;
     static unsigned char last_servo_data;
+    static boolean servo_p1_received = FALSE;
     sint16 Purpost_Speed_New;
     uint16 Servo_Duty_New;  
     RX_data = UART_GetChar(UART1);
@@ -171,20 +172,25 @@ void UART1_RX_IRQHandler(void)
     //     break;
     case 0x80:
         last_servo_data = RX_data & 0x3f;
+        servo_p1_received = TRUE;
         break;
     case 0xc0:
-        data = RX_data & 0x3f;
-        Servo_Duty_New = last_servo_data & 0x20 ?
-                Ui_Servo_Mid - (((last_servo_data & 0x1f) << 6) + data) :
-                Ui_Servo_Mid + (((last_servo_data & 0x1f) << 6) + data);
-        if(Servo_Duty_New == Ui_Servo_Mid || (Servo_Duty_New < Ui_Servo_Mid && Servo_Duty > Ui_Servo_Mid) || Servo_Duty_New > Ui_Servo_Mid && Servo_Duty < Ui_Servo_Mid)
+        if(servo_p1_received)
         {
-            Servo_Duty = Servo_Duty_New;
+            data = RX_data & 0x3f;
+            Servo_Duty_New = last_servo_data & 0x20 ?
+                    Ui_Servo_Mid - (((last_servo_data & 0x1f) << 6) + data) :
+                    Ui_Servo_Mid + (((last_servo_data & 0x1f) << 6) + data);
+            if(Servo_Duty_New == Ui_Servo_Mid || (Servo_Duty_New < Ui_Servo_Mid && Servo_Duty > Ui_Servo_Mid) || Servo_Duty_New > Ui_Servo_Mid && Servo_Duty < Ui_Servo_Mid)
+            {
+                Servo_Duty = Servo_Duty_New;
+            }
+            else
+            {
+                Servo_Duty = 0.8 * Servo_Duty_New + 0.2 * Servo_Duty;
+            }
         }
-        else
-        {
-            Servo_Duty = 0.8 * Servo_Duty_New + 0.2 * Servo_Duty;
-        }
+        servo_p1_received = FALSE;
         break;
     }
 
