@@ -65,13 +65,19 @@ const void *UartIrqFuncPointer[12] = {&UART0_RX_IRQHandler, &UART0_TX_IRQHandler
                                        &UART1_RX_IRQHandler, &UART1_TX_IRQHandler, &UART1_ER_IRQHandler,
                                        &UART2_RX_IRQHandler, &UART2_TX_IRQHandler, &UART2_ER_IRQHandler,
                                        &UART3_RX_IRQHandler, &UART3_TX_IRQHandler, &UART3_ER_IRQHandler,};
+
+/*
+    传输开始标志: 0x55 即 0b01010101
+    传输结束标志: 0x6a 即 0b01101010
+*/
 void uart_data_decoder(void)
 {
     unsigned char data,flag_code;
     static unsigned char last_servo_data;
     static boolean servo_p1_received = FALSE;
-    sint16 Purpost_Speed_New;
-    uint16 Servo_Duty_New;  
+    static boolean trans_begin = FALSE;
+    static sint16 Purpost_Speed_New;
+    static uint16 Servo_Duty_New;  
 
     flag_code = RX_data & 0xc0;
     switch (flag_code)
@@ -83,26 +89,43 @@ void uart_data_decoder(void)
         {
             Purpost_Speed_New = -Purpost_Speed_New;
         }
-        if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || (Purpost_Speed_New > 0 && Purpost_Speed < 0))
+        break;
+    case 0x40:
+        if(RX_data == 0x55)
+            trans_begin = TRUE;
+        else if(RX_data == 0x6a) //检测到传输结束，更新数据
         {
-            Purpost_Speed = Purpost_Speed_New;
-        }
-        else
-        {        
-            // 防止速度变化过大，感觉没啥用
-            if(Purpost_Speed_New - Purpost_Speed > 500)
+            if(trans_begin)
             {
-                Purpost_Speed_New = Purpost_Speed + 500;
+                trans_begin = FALSE;
+        if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || (Purpost_Speed_New > 0 && Purpost_Speed < 0))
+                {
+                    Purpost_Speed = Purpost_Speed_New;
+                }
+                else
+                {        
+                    // 防止速度变化过大，感觉没啥用
+                    if(Purpost_Speed_New - Purpost_Speed > 500)
+                    {
+                        Purpost_Speed_New = Purpost_Speed + 500;
+                    }
+                    else if(Purpost_Speed_New - Purpost_Speed < -500)
+                    {
+                        Purpost_Speed_New = Purpost_Speed - 500;
+                    }
+                    Purpost_Speed = 0.3 * Purpost_Speed_New + 0.7 * Purpost_Speed;
+                }
+                if(Servo_Duty_New == Ui_Servo_Mid || (Servo_Duty_New < Ui_Servo_Mid && Servo_Duty > Ui_Servo_Mid) || (Servo_Duty_New > Ui_Servo_Mid && Servo_Duty < Ui_Servo_Mid))
+                {
+                    Servo_Duty = Servo_Duty_New;
+                }
+                else
+                {
+                    Servo_Duty = 0.8 * Servo_Duty_New + 0.2 * Servo_Duty;
+                }
             }
-            else if(Purpost_Speed_New - Purpost_Speed < -500)
-            {
-                Purpost_Speed_New = Purpost_Speed - 500;
-            }
-            Purpost_Speed = 0.3 * Purpost_Speed_New + 0.7 * Purpost_Speed;
         }
         break;
-    // case 0x40:
-    //     break;
     case 0x80:
         last_servo_data = RX_data & 0x3f;
         servo_p1_received = TRUE;
@@ -114,14 +137,6 @@ void uart_data_decoder(void)
             Servo_Duty_New = last_servo_data & 0x20 ?
                     Ui_Servo_Mid - (((last_servo_data & 0x1f) << 6) + data) :
                     Ui_Servo_Mid + (((last_servo_data & 0x1f) << 6) + data);
-            if(Servo_Duty_New == Ui_Servo_Mid || (Servo_Duty_New < Ui_Servo_Mid && Servo_Duty > Ui_Servo_Mid) || (Servo_Duty_New > Ui_Servo_Mid && Servo_Duty < Ui_Servo_Mid))
-            {
-                Servo_Duty = Servo_Duty_New;
-            }
-            else
-            {
-                Servo_Duty = 0.8 * Servo_Duty_New + 0.2 * Servo_Duty;
-            }
         }
         servo_p1_received = FALSE;
         break;
@@ -170,7 +185,7 @@ void UART1_RX_IRQHandler(void)
     RX_data = UART_GetChar(UART1);
 
     uart_data_decoder();
-    
+
             // //UART_PutChar(UART0, UART_GetChar(UART0));
             // //UART_PutChar(UART0, RX_data[1]);
             // //LED_test = RX_data[0];
