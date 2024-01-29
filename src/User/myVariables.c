@@ -53,4 +53,4 @@ int Deviation = 0;
 volatile float speed = 0;                        //接受到的速度结果 m/s
 volatile uint16 servoPwm = 0;                    //接受到的方向结果
 
-
+volatile uint16 time_out_cnt = 0;                      //串口未接收到数据超时计数

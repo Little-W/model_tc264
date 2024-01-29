@@ -20,6 +20,7 @@
 
 App_Cpu0 g_AppCpu0; // brief CPU 0 global data
 IfxCpu_mutexLock mutexCpu0InitIsOk = 1;   // CPU0 初始化完成标志位
+
 int core0_main()
 {
     //short Speed=2000; //库函数模板最大110，最小90
@@ -62,6 +63,7 @@ int core0_main()
 //    //Get_Out_Flag = 0;
 //    ATOM_PWM_InitConfig(IfxGtm_ATOM1_1_TOUT54_P21_3_OUT, 0, 12000);
 //    ATOM_PWM_InitConfig(IfxGtm_ATOM0_0_TOUT53_P21_2_OUT, 0, 12000);
+
     UART_PutStr(UART1,"Hello World\n");
     UART_PutStr(UART2,"Hello World\n");
     while (1)
@@ -89,6 +91,12 @@ int core0_main()
           UART_PutChar(UART1,uart_send_data_1);
           UART_PutChar(UART1,uart_send_data_2);
           delayms(50);
+          time_out_cnt ++;
+          if(time_out_cnt >= 10)
+          {
+              Servo_Duty = Ui_Servo_Mid;
+              Purpost_Speed = 0;
+          }
 //        ATOM_PWM_SetDuty(IfxGtm_ATOM1_1_TOUT54_P21_3_OUT,3000,12000);
 //        ATOM_PWM_SetDuty(IfxGtm_ATOM0_0_TOUT53_P21_2_OUT,0,12000);
 //        Set_Motor_Duty(3000);

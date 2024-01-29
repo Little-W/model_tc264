@@ -92,7 +92,10 @@ void uart_data_decoder(void)
         break;
     case 0x40:
         if(RX_data == 0x55)
+        {
             trans_begin = TRUE;
+            time_out_cnt = 0;
+        }
         else if(RX_data == 0x6a) //检测到传输结束，更新数据
         {
             if(trans_begin)

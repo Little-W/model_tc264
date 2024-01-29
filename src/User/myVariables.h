@@ -54,5 +54,5 @@ extern volatile int Get_Out_Speed;             //出库速度 EncSpeed
 extern volatile float speed;                        //接受到的速度结果 m/s
 extern volatile uint16 servoPwm;                    //接受到的方向结果
 
-
+extern volatile uint16 time_out_cnt;                      //串口未接收到数据超时计数
 #endif /* SRC_USER_MYVARIABLES_H_ */
