@@ -65,82 +65,15 @@ const void *UartIrqFuncPointer[12] = {&UART0_RX_IRQHandler, &UART0_TX_IRQHandler
                                        &UART1_RX_IRQHandler, &UART1_TX_IRQHandler, &UART1_ER_IRQHandler,
                                        &UART2_RX_IRQHandler, &UART2_TX_IRQHandler, &UART2_ER_IRQHandler,
                                        &UART3_RX_IRQHandler, &UART3_TX_IRQHandler, &UART3_ER_IRQHandler,};
-
-/*************************************************************************
-*  函数名称：void UART0_RX_IRQHandler(void)
-*  功能说明：UART0_RX_IRQHandler中断服务函数
-*  参数说明：无
-*  函数返回：无
-*  修改时间：2020年3月30日
-*  备    注：
-*************************************************************************/
-void UART0_RX_IRQHandler(void)
+void uart_data_decoder(void)
 {
-    IfxAsclin_Asc_isrReceive(&g_UartConfig[0]);
-
-        /* 用户代码 */
-         //if(!Get_Out_Flag)
-        unsigned char data,flag_code;
-        static unsigned char last_servo_data;
-        RX_data = UART_GetChar(UART0);
-
-        flag_code = RX_data & 0xc0;
-
-        switch (flag_code)
-        {
-        case 0x00:
-            data = RX_data & 0x1f;
-            Purpost_Speed = data * 22; // +- 0 ~ 682
-            if(RX_data & 0x20)
-            {
-                Purpost_Speed = -Purpost_Speed;
-            }
-
-            break;
-        // case 0x40:
-        //     break;
-        case 0x80:
-            last_servo_data = RX_data & 0x3f;
-            break;
-        case 0xc0:
-            data = RX_data & 0x3f;
-            Servo_Duty = last_servo_data & 0x20 ? 
-                    Ui_Servo_Mid - (((last_servo_data & 0x1f) << 6) + data) :
-                    Ui_Servo_Mid + (((last_servo_data & 0x1f) << 6) + data);
-            break;
-        }
-}
-
-void UART0_TX_IRQHandler(void)
-{
-    IfxAsclin_Asc_isrTransmit(&g_UartConfig[0]);
-
-    /* 用户代码 */
-}
-
-void UART0_ER_IRQHandler(void)
-{
-    IfxAsclin_Asc_isrError(&g_UartConfig[0]);
-
-    /* 用户代码 */
-
-}
-
-void UART1_RX_IRQHandler(void)
-{
-    IfxAsclin_Asc_isrReceive(&g_UartConfig[1]);
-
-    /* 用户代码 */
-     //if(!Get_Out_Flag)
     unsigned char data,flag_code;
     static unsigned char last_servo_data;
     static boolean servo_p1_received = FALSE;
     sint16 Purpost_Speed_New;
     uint16 Servo_Duty_New;  
-    RX_data = UART_GetChar(UART1);
 
     flag_code = RX_data & 0xc0;
-
     switch (flag_code)
     {
     case 0x00:
@@ -148,9 +81,9 @@ void UART1_RX_IRQHandler(void)
         Purpost_Speed_New = data * 22; // +- 0 ~ 682
         if(RX_data & 0x20)
         {
-            Purpost_Speed_New = -Purpost_Speed;
+            Purpost_Speed_New = -Purpost_Speed_New;
         }
-        if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || Purpost_Speed_New > 0 && Purpost_Speed < 0)
+        if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || (Purpost_Speed_New > 0 && Purpost_Speed < 0))
         {
             Purpost_Speed = Purpost_Speed_New;
         }
@@ -181,7 +114,7 @@ void UART1_RX_IRQHandler(void)
             Servo_Duty_New = last_servo_data & 0x20 ?
                     Ui_Servo_Mid - (((last_servo_data & 0x1f) << 6) + data) :
                     Ui_Servo_Mid + (((last_servo_data & 0x1f) << 6) + data);
-            if(Servo_Duty_New == Ui_Servo_Mid || (Servo_Duty_New < Ui_Servo_Mid && Servo_Duty > Ui_Servo_Mid) || Servo_Duty_New > Ui_Servo_Mid && Servo_Duty < Ui_Servo_Mid)
+            if(Servo_Duty_New == Ui_Servo_Mid || (Servo_Duty_New < Ui_Servo_Mid && Servo_Duty > Ui_Servo_Mid) || (Servo_Duty_New > Ui_Servo_Mid && Servo_Duty < Ui_Servo_Mid))
             {
                 Servo_Duty = Servo_Duty_New;
             }
@@ -193,8 +126,51 @@ void UART1_RX_IRQHandler(void)
         servo_p1_received = FALSE;
         break;
     }
+}
+/*************************************************************************
+*  函数名称：void UART0_RX_IRQHandler(void)
+*  功能说明：UART0_RX_IRQHandler中断服务函数
+*  参数说明：无
+*  函数返回：无
+*  修改时间：2020年3月30日
+*  备    注：
+*************************************************************************/
+void UART0_RX_IRQHandler(void)
+{
+    IfxAsclin_Asc_isrReceive(&g_UartConfig[0]);
 
+        /* 用户代码 */
+         //if(!Get_Out_Flag)
+        RX_data = UART_GetChar(UART0);
+        uart_data_decoder();
+}
 
+void UART0_TX_IRQHandler(void)
+{
+    IfxAsclin_Asc_isrTransmit(&g_UartConfig[0]);
+
+    /* 用户代码 */
+}
+
+void UART0_ER_IRQHandler(void)
+{
+    IfxAsclin_Asc_isrError(&g_UartConfig[0]);
+
+    /* 用户代码 */
+
+}
+
+void UART1_RX_IRQHandler(void)
+{
+    IfxAsclin_Asc_isrReceive(&g_UartConfig[1]);
+
+    /* 用户代码 */
+     //if(!Get_Out_Flag)
+
+    RX_data = UART_GetChar(UART1);
+
+    uart_data_decoder();
+    
             // //UART_PutChar(UART0, UART_GetChar(UART0));
             // //UART_PutChar(UART0, RX_data[1]);
             // //LED_test = RX_data[0];
