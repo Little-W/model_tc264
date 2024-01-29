@@ -44,7 +44,7 @@ volatile uint8 Get_Out_Flag = 0;                //出库标志
 volatile uint8 UART_Flag1 = 0;
 volatile uint8 UART_Flag2 = 0;
 
-volatile uint8 Get_Out_Time = 2000;                //出库时间 ms
+volatile uint16 Get_Out_Time = 2000;                //出库时间 ms
 
 volatile int Get_Out_Speed = 100;             //出库速度 EncSpeed
 

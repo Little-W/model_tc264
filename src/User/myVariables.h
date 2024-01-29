@@ -47,7 +47,7 @@ extern volatile uint8 UART_Rev;                //UART接收标志
 extern volatile uint8 UART_Flag1;
 extern volatile uint8 UART_Flag2;
 
-extern volatile uint8 Get_Out_Time;                //出库时间 ms
+extern volatile uint16 Get_Out_Time;                //出库时间 ms
 
 extern volatile int Get_Out_Speed;             //出库速度 EncSpeed
 

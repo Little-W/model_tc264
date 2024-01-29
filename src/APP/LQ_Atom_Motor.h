@@ -1,24 +1,24 @@
 /*LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
-¡¾Æ½    Ì¨¡¿±±¾©ÁúÇñÖÇÄÜ¿Æ¼¼TC264DAºËÐÄ°å
-¡¾±à    Ð´¡¿ZYF/chiusir
-¡¾E-mail  ¡¿chiusir@163.com
-¡¾Èí¼þ°æ±¾¡¿V1.1 °æÈ¨ËùÓÐ£¬µ¥Î»Ê¹ÓÃÇëÏÈÁªÏµÊÚÈ¨
-¡¾×îºó¸üÐÂ¡¿2020Äê10ÔÂ28ÈÕ
-¡¾Ïà¹ØÐÅÏ¢²Î¿¼ÏÂÁÐµØÖ·¡¿
-¡¾Íø    Õ¾¡¿http://www.lqist.cn
-¡¾ÌÔ±¦µêÆÌ¡¿http://longqiu.taobao.com
+ï¿½ï¿½Æ½    Ì¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü¿Æ¼ï¿½TC264DAï¿½ï¿½ï¿½Ä°ï¿½
+ï¿½ï¿½ï¿½ï¿½    Ð´ï¿½ï¿½ZYF/chiusir
+ï¿½ï¿½E-mail  ï¿½ï¿½chiusir@163.com
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ±¾ï¿½ï¿½V1.1 ï¿½ï¿½È¨ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½Î»Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½È¨
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¡ï¿½2020ï¿½ï¿½10ï¿½ï¿½28ï¿½ï¿½
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½Î¿ï¿½ï¿½ï¿½ï¿½Ðµï¿½Ö·ï¿½ï¿½
+ï¿½ï¿½ï¿½ï¿½    Õ¾ï¿½ï¿½http://www.lqist.cn
+ï¿½ï¿½ï¿½Ô±ï¿½ï¿½ï¿½ï¿½Ì¡ï¿½http://longqiu.taobao.com
 ------------------------------------------------
-¡¾dev.env.¡¿AURIX Development Studio1.2.2¼°ÒÔÉÏ°æ±¾
-¡¾Target ¡¿ TC264DA/TC264D
-¡¾Crystal¡¿ 20.000Mhz
-¡¾SYS PLL¡¿ 200MHz
+ï¿½ï¿½dev.env.ï¿½ï¿½AURIX Development Studio1.2.2ï¿½ï¿½ï¿½ï¿½ï¿½Ï°æ±¾
+ï¿½ï¿½Target ï¿½ï¿½ TC264DA/TC264D
+ï¿½ï¿½Crystalï¿½ï¿½ 20.000Mhz
+ï¿½ï¿½SYS PLLï¿½ï¿½ 200MHz
 ________________________________________________________________
-»ùÓÚiLLD_1_0_1_11_0µ×²ã³ÌÐò,
+ï¿½ï¿½ï¿½ï¿½iLLD_1_0_1_11_0ï¿½×²ï¿½ï¿½ï¿½ï¿½,
 
-Ê¹ÓÃÀý³ÌµÄÊ±ºò£¬½¨Òé²ÉÓÃÃ»ÓÐ¿Õ¸ñµÄÓ¢ÎÄÂ·¾¶£¬
-³ýÁËCIFÎªTC264DA¶ÀÓÐÍâ£¬ÆäËüµÄ´úÂë¼æÈÝTC264D
-±¾¿âÄ¬ÈÏ³õÊ¼»¯ÁËEMEM£º512K£¬Èç¹ûÓÃ»§Ê¹ÓÃTC264D£¬×¢ÊÍµôEMEM_InitConfig()³õÊ¼»¯º¯Êý¡£
-¹¤³ÌÏÂ\Libraries\iLLD\TC26B\Tricore\Cpu\CStart\IfxCpu_CStart0.cµÚ164ÐÐ×óÓÒ¡£
+Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½Ê±ï¿½ò£¬½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ð¿Õ¸ï¿½ï¿½Ó¢ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½
+ï¿½ï¿½ï¿½ï¿½CIFÎªTC264DAï¿½ï¿½ï¿½ï¿½ï¿½â£¬ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½TC264D
+ï¿½ï¿½ï¿½ï¿½Ä¬ï¿½Ï³ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½EMEMï¿½ï¿½512Kï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ê¹ï¿½ï¿½TC264Dï¿½ï¿½×¢ï¿½Íµï¿½EMEM_InitConfig()ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½\Libraries\iLLD\TC26B\Tricore\Cpu\CStart\IfxCpu_CStart0.cï¿½ï¿½164ï¿½ï¿½ï¿½ï¿½ï¿½Ò¡ï¿½
 QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ*/
 #ifndef __LQ_MT_H_
 #define __LQ_MT_H_
@@ -26,7 +26,7 @@ QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ*/
 #define ATOMSERVO1       IfxGtm_ATOM2_0_TOUT32_P33_10_OUT
 #define ATOMSERVO2       IfxGtm_ATOM2_5_TOUT35_P33_13_OUT
 
-//#define ATOMPWM0Pin         IfxGtm_ATOM0_2_TOUT107_P10_5_OUT //¶¨ÒåPWMÊä³ö¹Ü½Å£¬Í¨¹ýP10.5Êä³öPWM¿ØÖÆÀ¶µÆºôÎü
+//#define ATOMPWM0Pin         IfxGtm_ATOM0_2_TOUT107_P10_5_OUT //ï¿½ï¿½ï¿½ï¿½PWMï¿½ï¿½ï¿½ï¿½Ü½Å£ï¿½Í¨ï¿½ï¿½P10.5ï¿½ï¿½ï¿½PWMï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æºï¿½ï¿½ï¿½
 #define ATOMPWM0         IfxGtm_ATOM0_6_TOUT42_P23_1_OUT
 #define ATOMPWM1         IfxGtm_ATOM0_5_TOUT40_P32_4_OUT
 #define ATOMPWM2         IfxGtm_ATOM0_0_TOUT53_P21_2_OUT
