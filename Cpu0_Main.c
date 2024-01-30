@@ -92,9 +92,9 @@ int core0_main()
           UART_PutChar(UART2,uart_send_data_2);
           UART_PutChar(UART1,uart_send_data_1);
           UART_PutChar(UART1,uart_send_data_2);
-          delayms(50);
+          delayms(10);
           time_out_cnt ++;
-          if(time_out_cnt >= 10)
+          if(time_out_cnt >= 20)
           {
               Servo_Duty = Ui_Servo_Mid;
               Purpost_Speed = 0;
