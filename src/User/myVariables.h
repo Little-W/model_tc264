@@ -12,7 +12,7 @@
 #include "PID.h"
 //全局变量
 #define Ui_Stop_Flag 1                //停车标志位
-#define Ui_Servo_Mid 4896                //舵机中值对应的数值占空比
+#define Ui_Servo_Mid 4720                //舵机中值对应的数值占空比
 #define Ui_Servo_Interval 1200          //舵机左右转动的阈值
 /****************PID结构体******************/
 extern volatile _pid_param_t  Speed_pid;          //电机控制PID

@@ -27,7 +27,7 @@ int core0_main()
     //int Speed_test, Speed_pur;
     unsigned char uart_send_data_1,uart_send_data_2;
     unsigned short speed_tmp;
-    Servo_Duty = 4896; //舵机产品书maikuan
+    Servo_Duty = Ui_Servo_Mid; //舵机产品书maikuan
     // 关闭CPU总中断
     IfxCpu_disableInterrupts();
 
