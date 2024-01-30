@@ -88,6 +88,8 @@ int core0_main()
               uart_send_data_1 |= speed_tmp >> 8;
               uart_send_data_2 = speed_tmp & 0xff;
           }
+          UART_PutChar(UART2,uart_send_data_1);
+          UART_PutChar(UART2,uart_send_data_2);
           UART_PutChar(UART1,uart_send_data_1);
           UART_PutChar(UART1,uart_send_data_2);
           delayms(50);

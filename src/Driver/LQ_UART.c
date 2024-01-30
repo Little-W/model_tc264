@@ -299,9 +299,10 @@ void UART1_ER_IRQHandler(void)
 void UART2_RX_IRQHandler(void)
 {
     IfxAsclin_Asc_isrReceive(&g_UartConfig[2]);
-
+    RX_data = UART_GetChar(UART2);
+    uart_data_decoder();
     /* 用户代码 */
-    UART_PutChar(UART2, UART_GetChar(UART2));
+    // UART_PutChar(UART2, UART_GetChar(UART2));
 }
 
 void UART2_TX_IRQHandler(void)
