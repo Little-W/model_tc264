@@ -1,5 +1,7 @@
 .*
 .vscode/
 *.o
+*.d
+*.mk
 *.avi
 *.mp4
