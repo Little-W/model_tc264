@@ -74,19 +74,28 @@ int core0_main()
 //              Set_Motor_Duty(1750);
 
           ATOM_PWM_SetDuty(IfxGtm_ATOM2_4_TOUT34_P33_12_OUT, 5000, MOTOR_FREQUENCY);
+          /*
+                编码方案：
+                前两位作为数据标识码：
+                    00：数据的第一部分
+                    11：数据的第二部分
+                传输数据类型：s12
+          */
+          uart_send_data_1 = 0x0;
+          uart_send_data_2 = 0xc0;
           if(Enc_Val < 0)
           {
               speed_tmp = - Enc_Val;
-              uart_send_data_1 = 0x80;
-              uart_send_data_1 |= speed_tmp >> 8;
-              uart_send_data_2 = speed_tmp & 0xff;
+              uart_send_data_1 |= 0x20;
+              uart_send_data_1 |= (speed_tmp >> 6) & 0x1f;
+              uart_send_data_2 |= speed_tmp & 0x3f;
           }
           else
           {
               speed_tmp = Enc_Val;
               uart_send_data_1 = 0x00;
-              uart_send_data_1 |= speed_tmp >> 8;
-              uart_send_data_2 = speed_tmp & 0xff;
+              uart_send_data_1 |= (speed_tmp >> 6) & 0x1f;
+              uart_send_data_2 |= speed_tmp & 0x3f;
           }
           UART_PutChar(UART2,uart_send_data_1);
           UART_PutChar(UART2,uart_send_data_2);
