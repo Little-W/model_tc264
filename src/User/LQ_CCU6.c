@@ -32,6 +32,8 @@ const void *Ccu6IrqFuncPointer[4] = {&CCU60_CH0_IRQHandler, &CCU60_CH1_IRQHandle
 
 void CCU60_CH0_IRQHandler (void)
 {
+    unsigned char uart_send_data_1,uart_send_data_2;
+    unsigned short speed_tmp;
     /* 开启CPU中断  否则中断不可嵌套 */
     IfxCpu_enableInterrupts();
     // 清除中断标志
@@ -52,6 +54,26 @@ void CCU60_CH0_IRQHandler (void)
     Enc_Val =  ENC_GetCounter(ENC2_InPut_P33_7); //10ms中断周期
     Speed_Duty = (short)Get_Uk(Purpost_Speed - Enc_Val);
     Set_Motor_Duty(Speed_Duty);//调节占空比
+    uart_send_data_1 = 0x40;
+    uart_send_data_2 = 0xc0;
+    if(Enc_Val < 0)
+    {
+        speed_tmp = (unsigned short)(- Enc_Val);
+        uart_send_data_1 |= 0x20;
+        uart_send_data_1 |= (speed_tmp >> 6) & 0x1f;
+        uart_send_data_2 |= speed_tmp & 0x3f;
+    }
+    else
+    {
+        speed_tmp = Enc_Val;
+        uart_send_data_1 |= (speed_tmp >> 6) & 0x1f;
+        uart_send_data_2 |= speed_tmp & 0x3f;
+    }
+    UART_PutChar(UART2,uart_send_data_1);
+    UART_PutChar(UART1,uart_send_data_1);
+    UART_PutChar(UART2,uart_send_data_2);
+    UART_PutChar(UART1,uart_send_data_2);
+
 //    Set_Servo_Duty(600);
 
 }

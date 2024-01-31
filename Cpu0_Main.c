@@ -25,9 +25,9 @@ int core0_main()
 {
     //short Speed=2000; //库函数模板最大110，最小90
     //int Speed_test, Speed_pur;
-    unsigned char uart_send_data_1,uart_send_data_2;
-    unsigned short speed_tmp;
+
     Servo_Duty = Ui_Servo_Mid; //舵机产品书maikuan
+    
     // 关闭CPU总中断
     IfxCpu_disableInterrupts();
 
@@ -81,26 +81,6 @@ int core0_main()
                     11：数据的第二部分
                 传输数据类型：s12
           */
-          uart_send_data_1 = 0x0;
-          uart_send_data_2 = 0xc0;
-          if(Enc_Val < 0)
-          {
-              speed_tmp = - Enc_Val;
-              uart_send_data_1 |= 0x20;
-              uart_send_data_1 |= (speed_tmp >> 6) & 0x1f;
-              uart_send_data_2 |= speed_tmp & 0x3f;
-          }
-          else
-          {
-              speed_tmp = Enc_Val;
-              uart_send_data_1 = 0x00;
-              uart_send_data_1 |= (speed_tmp >> 6) & 0x1f;
-              uart_send_data_2 |= speed_tmp & 0x3f;
-          }
-          UART_PutChar(UART2,uart_send_data_1);
-          UART_PutChar(UART2,uart_send_data_2);
-          UART_PutChar(UART1,uart_send_data_1);
-          UART_PutChar(UART1,uart_send_data_2);
           delayms(10);
           time_out_cnt ++;
           if(time_out_cnt >= 20)
