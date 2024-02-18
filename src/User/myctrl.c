@@ -71,4 +71,27 @@ void power_warning(void)
 {
 
 }
-
+void send_enc_speed(void)
+{
+    unsigned char uart_send_data_1,uart_send_data_2;
+    unsigned short speed_tmp;
+    uart_send_data_1 = 0x40;
+    uart_send_data_2 = 0xc0;
+    if(Enc_Val < 0)
+    {
+        speed_tmp = (unsigned short)(- Enc_Val);
+        uart_send_data_1 |= 0x20;
+        uart_send_data_1 |= (speed_tmp >> 6) & 0x1f;
+        uart_send_data_2 |= speed_tmp & 0x3f;
+    }
+    else
+    {
+        speed_tmp = Enc_Val;
+        uart_send_data_1 |= (speed_tmp >> 6) & 0x1f;
+        uart_send_data_2 |= speed_tmp & 0x3f;
+    }
+    UART_PutChar(UART2,uart_send_data_1);
+    UART_PutChar(UART1,uart_send_data_1);
+    UART_PutChar(UART2,uart_send_data_2);
+    UART_PutChar(UART1,uart_send_data_2);
+}

@@ -19,7 +19,7 @@ volatile float  Ui_Motor_D = 0.0f;                 //电机D参数 0.0f
 //减速电机
 volatile float  Ui_Motor_dP = 1.6f;                 //电机P参数 4.0f
 volatile float  Ui_Motor_dI = 0.53f;                  //电机I参数 0.4f
-volatile float  Ui_Motor_dD = 0.0f;                 //电机D参数 0.0f
+volatile float  Ui_Motor_dD = 0.15f;                 //电机D参数 0.0f
 
 volatile uint16 Ui_Motor_Max_Out = 5000;            //电机PID输出限幅
 

@@ -28,6 +28,7 @@ void SetToFixedSpeed(short SetFixed_Speed);
 void CancelSetToFixedSpeed(void);
 
 void Get_Out(void);
+void send_enc_speed(void);
 
 
 
