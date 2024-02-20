@@ -73,13 +73,17 @@ const void *UartIrqFuncPointer[12] = {&UART0_RX_IRQHandler, &UART0_TX_IRQHandler
 void uart_data_decoder(void)
 {
     unsigned char data,flag_code;
-    static unsigned char last_servo_data;
+    static unsigned char last_servo_data = 0;
+    static val_list Purpost_Speed_Rec[15] = {0};
+    static val_list Servo_Duty_Rec[15] = {0};
     static boolean servo_p1_received = FALSE;
     static boolean trans_begin = FALSE;
-    static sint16 Purpost_Speed_New;
-    static uint16 Servo_Duty_New;  
-
+    static int speed_index_cnt = 0, angle_index_cnt = 0;
+    static unsigned char last_rx_data;
+    sint16 Purpost_Speed_New, Servo_Duty_New;
+    boolean speed_found_eq = FALSE, angle_found_eq = FALSE;
     flag_code = RX_data & 0xc0;
+    
     switch (flag_code)
     {
     case 0x00:
@@ -89,19 +93,63 @@ void uart_data_decoder(void)
         {
             Purpost_Speed_New = -Purpost_Speed_New;
         }
+        if(speed_index_cnt > 0)
+        {
+            for(int i = 0; i < speed_index_cnt; i++)
+            {
+                if(Purpost_Speed_New == Purpost_Speed_Rec[i].val)
+                {
+                    Purpost_Speed_Rec[i].cnt++;
+                    speed_found_eq = TRUE;
+                    if(i >= 1)
+                    {
+                        for(int j = 0; j < i; j++)
+                        {
+                            val_list tmp;
+                            if( Purpost_Speed_Rec[i].cnt > Purpost_Speed_Rec[j].cnt)
+                            {
+                                tmp =  Purpost_Speed_Rec[j];
+                                Purpost_Speed_Rec[j] = Purpost_Speed_Rec[i];
+                                Purpost_Speed_Rec[i] = tmp;
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+            if(!speed_found_eq)
+            {
+                Purpost_Speed_Rec[speed_index_cnt].val = Purpost_Speed_New;
+                Purpost_Speed_Rec[speed_index_cnt].cnt = 1;
+            }
+        }
+        else
+        {
+            Purpost_Speed_Rec[0].val = Purpost_Speed_New;
+            Purpost_Speed_Rec[0].cnt = 1;
+            speed_index_cnt = 1;
+        }
         break;
     case 0x40:
         if(RX_data == 0x55)
         {
             trans_begin = TRUE;
+            speed_index_cnt = 0;
+            angle_index_cnt = 0;
             time_out_cnt = 0;
+        }
+        else if(RX_data == 0x5b) //检测到传输分割标志
+        {
+            servo_p1_received = FALSE;
         }
         else if(RX_data == 0x6a) //检测到传输结束，更新数据
         {
             if(trans_begin)
             {
                 trans_begin = FALSE;
-        if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || (Purpost_Speed_New > 0 && Purpost_Speed < 0))
+                Purpost_Speed_New = Purpost_Speed_Rec[0].val;
+                Servo_Duty_New = Servo_Duty_Rec[0].val;
+                if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || (Purpost_Speed_New > 0 && Purpost_Speed < 0))
                 {
                     Purpost_Speed = Purpost_Speed_New;
                 }
@@ -116,16 +164,9 @@ void uart_data_decoder(void)
                     {
                         Purpost_Speed_New = Purpost_Speed - 500;
                     }
-                    Purpost_Speed = 0.3 * Purpost_Speed_New + 0.7 * Purpost_Speed;
+                    Purpost_Speed = Purpost_Speed_New;
                 }
-                if(Servo_Duty_New == Ui_Servo_Mid || (Servo_Duty_New < Ui_Servo_Mid && Servo_Duty > Ui_Servo_Mid) || (Servo_Duty_New > Ui_Servo_Mid && Servo_Duty < Ui_Servo_Mid))
-                {
-                    Servo_Duty = Servo_Duty_New;
-                }
-                else
-                {
-                    Servo_Duty = 0.8 * Servo_Duty_New + 0.2 * Servo_Duty;
-                }
+                Servo_Duty = Servo_Duty_New;
             }
         }
         break;
@@ -140,10 +181,47 @@ void uart_data_decoder(void)
             Servo_Duty_New = last_servo_data & 0x20 ?
                     Ui_Servo_Mid - (((last_servo_data & 0x1f) << 6) + data) :
                     Ui_Servo_Mid + (((last_servo_data & 0x1f) << 6) + data);
+            if(angle_index_cnt > 0)
+            {
+                for(int i = 0; i < angle_index_cnt; i++)
+                {
+                    if(Servo_Duty_New == Servo_Duty_Rec[i].val)
+                    {
+                        Servo_Duty_Rec[i].cnt++;
+                        angle_found_eq = TRUE;
+                        if(i >= 1)
+                        {
+                            for(int j = 0; j < i; j++)
+                            {
+                                val_list tmp;
+                                if(Servo_Duty_Rec[i].cnt > Servo_Duty_Rec[j].cnt)
+                                {
+                                    tmp =  Servo_Duty_Rec[j];
+                                    Servo_Duty_Rec[j] = Servo_Duty_Rec[i];
+                                    Servo_Duty_Rec[i] = tmp;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+                if(!angle_found_eq)
+                {
+                    Servo_Duty_Rec[angle_index_cnt].val = Servo_Duty_New;
+                    Servo_Duty_Rec[angle_index_cnt].cnt = 1;
+                }
+            }
+            else
+            {
+                Servo_Duty_Rec[0].val = Servo_Duty_New;
+                Servo_Duty_Rec[0].cnt = 1;
+                angle_index_cnt = 1;
+            }
         }
         servo_p1_received = FALSE;
         break;
     }
+    last_rx_data = RX_data;
 }
 /*************************************************************************
 *  函数名称：void UART0_RX_IRQHandler(void)
