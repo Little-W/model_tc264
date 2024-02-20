@@ -51,11 +51,20 @@ void CancelSetToFixedSpeed(void)
     Fixed_Purpost_Speed = 0;
 }
 
-
 //获得车轮控制量
-float Get_Uk(sint16 Ek)
+float Get_Uk(sint16 target, sint16 current, unsigned char *mode)
 {
-    return Incremental_PID(&Speed_pid, Ek, Ui_Motor_Max_Out);
+    sint16 Ek = target - current;
+    if(Ek < -BRAKE_ERROR_THRESH && current > BRAKE_SPEED_THRESH )
+    {
+        *mode = SPEED_CTRL_BRAKE;
+        return Brake_PID(&Speed_brake_pid, -Ek, Ui_Motor_Brake_Max_Out);
+    }
+    else 
+    {
+        *mode = SPEED_CTRL_COMMON;
+        return Incremental_PID(&Speed_pid, Ek , Ui_Motor_Max_Out);
+    }
 }
 
 //小车出库

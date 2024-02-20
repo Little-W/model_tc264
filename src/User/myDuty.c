@@ -31,20 +31,33 @@ inline void Set_Servo_Duty(uint16 duty)
   * @date    2022.4.20
   */
 
-inline void Set_Motor_Duty(short duty)
+inline void Set_Motor_Duty(short duty, unsigned char mode)
 {
-    if(duty >= 0)
+    switch (mode)
     {
+    case SPEED_CTRL_COMMON :
+        if(duty >= 0)
+        {
+            ATOM_PWM_SetDuty(MOTOR1_P, duty, MOTOR_FREQUENCY);
+            //IfxPort_setPinLow(&MODULE_P21, 2);
+            ATOM_PWM_SetDuty(MOTOR1_N, 0, MOTOR_FREQUENCY);
+        }
+        else
+        {
+            ATOM_PWM_SetDuty(MOTOR1_P, 0, MOTOR_FREQUENCY);
+            //IfxPort_setPinHigh(&MODULE_P21, 2);
+            ATOM_PWM_SetDuty(MOTOR1_N, -duty, MOTOR_FREQUENCY);
+        }
+        break;
+    case SPEED_CTRL_BRAKE :
         ATOM_PWM_SetDuty(MOTOR1_P, duty, MOTOR_FREQUENCY);
-        //IfxPort_setPinLow(&MODULE_P21, 2);
-        ATOM_PWM_SetDuty(MOTOR1_N, 0, MOTOR_FREQUENCY);
+            //IfxPort_setPinLow(&MODULE_P21, 2);
+        ATOM_PWM_SetDuty(MOTOR1_N, duty, MOTOR_FREQUENCY);
+        break;
+    default:
+        break;
     }
-    else
-    {
-        ATOM_PWM_SetDuty(MOTOR1_P, 0, MOTOR_FREQUENCY);
-        //IfxPort_setPinHigh(&MODULE_P21, 2);
-        ATOM_PWM_SetDuty(MOTOR1_N, -duty, MOTOR_FREQUENCY);
-    }
+
 }
 
 

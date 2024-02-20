@@ -6,7 +6,7 @@
  */
 
 #include <myVariables.h>
-
+#include "myctrl.h"
 
 //电机频率
 #define MOTOR_FREQUENCY    12000
@@ -15,10 +15,14 @@
 /****************PID结构体******************/
 volatile _pid_param_t  Speed_pid;          //电机控制PID
 
+volatile _pid_param_t  Speed_brake_pid;          //电机刹车控制PID
+
 volatile _pid_param_t  Steer_pid;           //舵机控制PID
 
 /****************电机、舵机、编码器******************/
 volatile short Speed_Duty;               //电机设置占空比
+
+volatile unsigned char Speed_cur_mode;
 
 volatile uint16 countTime = 0;
 

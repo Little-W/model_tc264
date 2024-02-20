@@ -16,9 +16,12 @@
 #include <Function.h>
 #include "myDuty.h"
 
+#define SPEED_CTRL_COMMON 1
+#define SPEED_CTRL_BRAKE 2
+#define BRAKE_ERROR_THRESH 50
+#define BRAKE_SPEED_THRESH 120
 
-
-float Get_Uk(sint16 currentEncVal);
+float Get_Uk(sint16 target, sint16 current, unsigned char *mode);
 //void Update_Purpost(void);
 //void New_Update_Purpost(void);
 void ChangeCita(int cita);
@@ -29,7 +32,6 @@ void CancelSetToFixedSpeed(void);
 
 void Get_Out(void);
 void send_enc_speed(void);
-
 
 
 

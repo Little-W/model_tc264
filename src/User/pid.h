@@ -46,5 +46,5 @@ typedef struct
 
 float Incremental_PID(volatile _pid_param_t * pid_param, float error, float maxout);
 float Servo_PID(volatile _pid_param_t * pid_param, float maxout);
-
+float Brake_PID(volatile _pid_param_t *pid_param, float error, float maxout);
 #endif /* SRC_APPSW_TRICORE_USER_LQ_PID_H_ */

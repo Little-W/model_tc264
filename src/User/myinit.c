@@ -72,6 +72,22 @@ void Motor_PID_Init(void)
     Speed_pid.far_error         = 0;
     Speed_pid.error_m           = Ui_PID_Error_Thr;
 
+    Speed_brake_pid.kp                = Ui_Motor_Brake_P;
+    Speed_brake_pid.ki                = Ui_Motor_Brake_I;
+    Speed_brake_pid.kd                = Ui_Motor_Brake_D;
+    Speed_brake_pid.dp                = 0;
+    Speed_brake_pid.di                = 0;
+    Speed_brake_pid.dd                = 0;
+    Speed_brake_pid.pid_out_p         = 0;
+    Speed_brake_pid.pid_out_i         = 0;
+    Speed_brake_pid.pid_out_d         = 0;
+    Speed_brake_pid.pid_out_increment = 0;
+    Speed_brake_pid.pid_out           = 0;
+    Speed_brake_pid.current_error     = 0;
+    Speed_brake_pid.last_error        = 0;
+    Speed_brake_pid.far_error         = 0;
+    Speed_brake_pid.error_m           = Ui_PID_Error_Thr;   
+
 }
 
 void Steer_PID_Init(void)

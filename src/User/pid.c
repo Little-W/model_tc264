@@ -42,6 +42,23 @@ float Incremental_PID(volatile _pid_param_t *pid_param, float error, float maxou
     return pid_param->pid_out;
 }
 
+float Brake_PID(volatile _pid_param_t *pid_param, float error, float maxout)
+{
+    pid_param->current_error = error;//目标-实际
+    //PID系数计算
+    pid_param->pid_out_p = pid_param->kp * -672.8393 * pow(pid_param->current_error,-0.3463) + 270.9887;
+    pid_param->pid_out_i = pid_param->ki * pid_param->current_error;
+    pid_param->pid_out_d = pid_param->kd * (pid_param->current_error - pid_param->last_error);
+
+    //PID输出的计算和限幅
+    pid_param->pid_out_increment = pid_param->pid_out_p + pid_param->pid_out_i + pid_param->pid_out_d;
+    pid_param->pid_out += pid_param->pid_out_increment;
+    pid_param->pid_out = Constrain_Float(pid_param->pid_out,-maxout,maxout);
+    //误差更新
+    pid_param->last_error = pid_param->current_error;
+    return pid_param->pid_out;
+}
+
 
 /*
   * @brief    实现位置式PID
