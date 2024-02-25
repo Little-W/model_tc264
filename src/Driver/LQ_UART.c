@@ -100,10 +100,16 @@ void uart_data_decoder(void)
     static val_list Purpost_Speed_Rec[20] = {0};
     static val_list Servo_Duty_Rec[20] = {0};
     static boolean servo_p1_received = FALSE;
-    static boolean trans_begin = FALSE;
+    static boolean servo_trans_begin = FALSE;
+    static boolean speed_trans_begin = FALSE;
     static int speed_index_cnt = 0, angle_index_cnt = 0;
     static boolean getting_speed_crc = FALSE;
-    static boolean getting_angle_crc = FALSE;
+    static boolean getting_angle_crc_p1 = FALSE;
+    static boolean getting_angle_crc_p2 = FALSE;
+    static boolean angle_crc_p1_ok = FALSE;
+    static boolean getting_servo_data = FALSE;
+    static boolean angle_needs_update = FALSE;
+    static boolean speed_needs_update = FALSE;
     sint16 Purpost_Speed_New, Servo_Duty_New;
     boolean speed_found_eq = FALSE, angle_found_eq = FALSE;
     flag_code = RX_data & 0xc0;
@@ -112,6 +118,7 @@ void uart_data_decoder(void)
     {
         if(RX_data == crc8(&speed_code,1))
         {
+            speed_needs_update = TRUE;
             data = speed_code & 0x1f;
             Purpost_Speed_New = data * 22; // +- 0 ~ 682
             if(speed_code & 0x20)
@@ -146,6 +153,7 @@ void uart_data_decoder(void)
                 {
                     Purpost_Speed_Rec[speed_index_cnt].val = Purpost_Speed_New;
                     Purpost_Speed_Rec[speed_index_cnt].cnt = 1;
+                    speed_index_cnt++;
                 }
             }
             else
@@ -158,10 +166,21 @@ void uart_data_decoder(void)
         getting_speed_crc = FALSE;
         return;
     }
-    else if(getting_angle_crc)
+    // else if(getting_angle_crc_p1 && servo_p1_received)
+    // {
+    //     if(RX_data == crc8(&servo_code[0],1))
+    //     {
+    //         angle_crc_p1_ok = TRUE;
+    //     }
+    //     if(RX_data != 0x6e)
+    //         getting_angle_crc_p1 = FALSE;
+    //     return;
+    // }
+    else if(getting_angle_crc_p2 && servo_p1_received)
     {
         if(RX_data == crc8(servo_code,2))
         {
+            angle_needs_update = TRUE;
             data = servo_code[1] & 0x3f;
             Servo_Duty_New = servo_code[0] & 0x20 ?
                     Ui_Servo_Mid - (((servo_code[0] & 0x3f & 0x1f) << 6) + data) :
@@ -194,6 +213,7 @@ void uart_data_decoder(void)
                 {
                     Servo_Duty_Rec[angle_index_cnt].val = Servo_Duty_New;
                     Servo_Duty_Rec[angle_index_cnt].cnt = 1;
+                    angle_index_cnt++;
                 }
             }
             else
@@ -202,77 +222,119 @@ void uart_data_decoder(void)
                 Servo_Duty_Rec[0].cnt = 1;
                 angle_index_cnt = 1;
             }
+            angle_crc_p1_ok = FALSE;
         }
-        getting_angle_crc = FALSE;
+        getting_angle_crc_p2 = FALSE;
         return;
     }
     switch (flag_code)
     {
     case 0x00:
-        speed_code = RX_data;
+        if(speed_trans_begin)
+        {
+            speed_code = RX_data;
+        }
         break;
     case 0x40:
-        if(RX_data == 0x55)
+        if(RX_data == 0x55 && !servo_trans_begin)
         {
-            trans_begin = TRUE;
+            servo_p1_received = FALSE;
+            servo_trans_begin = TRUE;
+            speed_trans_begin = FALSE;
             speed_index_cnt = 0;
             angle_index_cnt = 0;
             time_out_cnt = 0;
             getting_speed_crc = FALSE;
-            getting_angle_crc = FALSE;
+            angle_crc_p1_ok = FALSE;
+            getting_angle_crc_p1 = FALSE;
+            getting_angle_crc_p2 = FALSE;
+            getting_servo_data = FALSE;
+            angle_needs_update = FALSE;
+        }
+        else if(RX_data == 0x6b && !speed_trans_begin)
+        {
+            servo_p1_received = FALSE;
+            servo_trans_begin = FALSE;
+            speed_trans_begin = TRUE;
+            speed_index_cnt = 0;
+            angle_index_cnt = 0;
+            time_out_cnt = 0;
+            getting_speed_crc = FALSE;
+            angle_crc_p1_ok = FALSE;
+            getting_angle_crc_p1 = FALSE;
+            getting_angle_crc_p2 = FALSE;
+            getting_servo_data = FALSE;
+            speed_needs_update = FALSE;
         }
         else if(RX_data == 0x5b) //检测到传输分割标志
         {
             servo_p1_received = FALSE;
             getting_speed_crc = FALSE;
-            getting_angle_crc = FALSE;
+            angle_crc_p1_ok = FALSE;
+            getting_angle_crc_p1 = FALSE;
+            getting_angle_crc_p2 = FALSE;
+            getting_servo_data = FALSE;
         }
         else if(RX_data == 0x6c)
         {
             getting_speed_crc = TRUE;
         }
-        else if(RX_data == 0x6e)
+        else if(RX_data == 0x6f)
         {
-            getting_angle_crc = TRUE;
+            getting_angle_crc_p2 = TRUE;
         }
-        else if(RX_data == 0x6a) //检测到传输结束，更新数据
+        else if(RX_data == 0x5c) //检测到舵机传输结束，更新数据
         {
-            if(trans_begin)
+            if(servo_trans_begin)
             {
-                trans_begin = FALSE;
-                Purpost_Speed_New = Purpost_Speed_Rec[0].val;
-                Servo_Duty_New = Servo_Duty_Rec[0].val;
-                if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || (Purpost_Speed_New > 0 && Purpost_Speed < 0))
+                servo_trans_begin = FALSE;
+                if(angle_needs_update)
                 {
-                    Purpost_Speed = Purpost_Speed_New;
+                    Servo_Duty = Servo_Duty_Rec[0].val;
                 }
-                else
-                {        
-                    // 防止速度变化过大，感觉没啥用
-                    if(Purpost_Speed_New - Purpost_Speed > 500)
+            }
+        }
+        else if(RX_data == 0x6a) //检测到速度传输结束，更新数据
+        {
+            if(speed_trans_begin)
+            {
+                speed_trans_begin = FALSE;
+                if(speed_needs_update)
+                {
+                    Purpost_Speed_New = Purpost_Speed_Rec[0].val;
+                    if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || (Purpost_Speed_New > 0 && Purpost_Speed < 0))
                     {
-                        Purpost_Speed_New = Purpost_Speed + 500;
+                        Purpost_Speed = Purpost_Speed_New;
                     }
-                    else if(Purpost_Speed_New - Purpost_Speed < -500)
-                    {
-                        Purpost_Speed_New = Purpost_Speed - 500;
+                    else
+                    {        
+                        // 防止速度变化过大，感觉没啥用
+                        if(Purpost_Speed_New - Purpost_Speed > 500)
+                        {
+                            Purpost_Speed_New = Purpost_Speed + 500;
+                        }
+                        else if(Purpost_Speed_New - Purpost_Speed < -500)
+                        {
+                            Purpost_Speed_New = Purpost_Speed - 500;
+                        }
+                        Smoothed_Purpost_Speed = 0.3 * Smoothed_Purpost_Speed + 0.7 * Purpost_Speed_New;
+                        Purpost_Speed = Purpost_Speed_New;
                     }
-                    Smoothed_Purpost_Speed = 0.3 * Smoothed_Purpost_Speed + 0.7 * Purpost_Speed_New;
-                    Purpost_Speed = Purpost_Speed_New;
                 }
-                Servo_Duty = Servo_Duty_New;
             }
         }
         break;
     case 0x80:
-        servo_p1_received = TRUE;
-        servo_code[0] = RX_data;
+        if(servo_trans_begin && !servo_p1_received)
+        {
+            servo_p1_received = TRUE;
+            servo_code[0] = RX_data;
+        }
         break;
     case 0xc0:
-        if(servo_p1_received)
+        if(servo_trans_begin && servo_p1_received)
         {
             servo_code[1] = RX_data;
-            servo_p1_received = FALSE;
         }
         break;
     }
