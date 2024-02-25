@@ -50,8 +50,8 @@ void CCU60_CH0_IRQHandler (void)
     //sprintf(txt, "%d %d\n", Purpost_Speed, Servo_Duty);
     //UART_PutStr(UART0, txt);
     Enc_Val =  ENC_GetCounter(ENC2_InPut_P33_7); //10ms中断周期
-    Speed_Duty = (short)Get_Uk(Purpost_Speed, Enc_Val, &Speed_cur_mode);
-    Set_Motor_Duty(Speed_Duty,Speed_cur_mode);//调节占空比
+    Speed_Duty = (short)Get_Uk();
+    Set_Motor_Duty(Speed_Duty);//调节占空比
     send_enc_speed();
 
 //    Set_Servo_Duty(600);

@@ -29,16 +29,16 @@ float Incremental_PID(volatile _pid_param_t *pid_param, float error, float maxou
     pid_param->far_error = pid_param->last_error;
     pid_param->last_error = pid_param->current_error;
     //急刹车
-    /*
-    if(pid_param->current_error < (-pid_param->error_m))//限幅
-    {
-        return (-maxout);
-    }
-    else
-    {
-        return pid_param->pid_out;
-    }
-    */
+    
+    // if(pid_param->current_error < (-pid_param->error_m))//限幅
+    // {
+    //     return (-maxout);
+    // }
+    // else
+    // {
+    //     return pid_param->pid_out;
+    // }
+    
     return pid_param->pid_out;
 }
 

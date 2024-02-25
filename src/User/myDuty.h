@@ -29,6 +29,6 @@
 extern volatile uint16 CurrentServoDty;//当前的舵机占空比
 
 void Set_Servo_Duty(uint16 duty);
-void Set_Motor_Duty(short duty, unsigned char mode);
+void Set_Motor_Duty(short duty);
 
 #endif /* SRC_USER_MYDUTY_H_ */
