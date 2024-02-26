@@ -70,118 +70,110 @@ const void *UartIrqFuncPointer[12] = {&UART0_RX_IRQHandler, &UART0_TX_IRQHandler
     传输开始标志: 0x55 即 0b01010101
     传输结束标志: 0x6a 即 0b01101010
 */
+#define POLYNOMIAL 0x07
+#define INITIAL_REMAINDER 0x00
+
+unsigned char crc8(unsigned char *data, size_t length) 
+{
+    unsigned char crc = INITIAL_REMAINDER;
+    for (size_t byte = 0; byte < length; ++byte) {
+        crc ^= data[byte]; // XOR byte into least sig. byte of crc
+
+        for (unsigned char bit = 8; bit > 0; --bit) { // Loop over each bit
+            if (crc & 0x80) { // If the uppermost bit is 1...
+                crc = (crc << 1) ^ POLYNOMIAL; // Shift left and XOR with the polynomial
+            } else {
+                crc <<= 1; // Just shift left
+            }
+        }
+    }
+
+    // Note: XOR with 0x00 can be omitted as it does not change the result
+    return crc; // Final remainder is the CRC result
+}
+
 void uart_data_decoder(void)
 {
     unsigned char data,flag_code;
-    static unsigned char last_servo_data = 0;
-    static val_list Purpost_Speed_Rec[15] = {0};
-    static val_list Servo_Duty_Rec[15] = {0};
+    static unsigned char servo_code[2] = {0};
+    static unsigned char speed_code = 0;
+    static val_list Purpost_Speed_Rec[20] = {0};
+    static val_list Servo_Duty_Rec[20] = {0};
     static boolean servo_p1_received = FALSE;
-    static boolean trans_begin = FALSE;
+    static boolean servo_trans_begin = FALSE;
+    static boolean speed_trans_begin = FALSE;
     static int speed_index_cnt = 0, angle_index_cnt = 0;
-    static unsigned char last_rx_data;
+    static boolean getting_speed_crc = FALSE;
+    static boolean getting_angle_crc = FALSE;
+    static boolean angle_crc_p1_ok = FALSE;
+    static boolean getting_servo_data = FALSE;
+    static boolean angle_needs_update = FALSE;
+    static boolean speed_needs_update = FALSE;
     sint16 Purpost_Speed_New, Servo_Duty_New;
     boolean speed_found_eq = FALSE, angle_found_eq = FALSE;
     flag_code = RX_data & 0xc0;
     
-    switch (flag_code)
+    if(getting_speed_crc)
     {
-    case 0x00:
-        data = RX_data & 0x1f;
-        Purpost_Speed_New = data * 22; // +- 0 ~ 682
-        if(RX_data & 0x20)
+        if(RX_data == crc8(&speed_code,1))
         {
-            Purpost_Speed_New = -Purpost_Speed_New;
-        }
-        if(speed_index_cnt > 0)
-        {
-            for(int i = 0; i < speed_index_cnt; i++)
+            speed_needs_update = TRUE;
+            data = speed_code & 0x1f;
+            Purpost_Speed_New = data * 22; // +- 0 ~ 682
+            if(speed_code & 0x20)
             {
-                if(Purpost_Speed_New == Purpost_Speed_Rec[i].val)
+                Purpost_Speed_New = -Purpost_Speed_New;
+            }
+            if(speed_index_cnt > 0)
+            {
+                for(int i = 0; i < speed_index_cnt; i++)
                 {
-                    Purpost_Speed_Rec[i].cnt++;
-                    speed_found_eq = TRUE;
-                    if(i >= 1)
+                    if(Purpost_Speed_New == Purpost_Speed_Rec[i].val)
                     {
-                        for(int j = 0; j < i; j++)
+                        Purpost_Speed_Rec[i].cnt++;
+                        speed_found_eq = TRUE;
+                        if(i >= 1)
                         {
-                            val_list tmp;
-                            if( Purpost_Speed_Rec[i].cnt > Purpost_Speed_Rec[j].cnt)
+                            for(int j = 0; j < i; j++)
                             {
-                                tmp =  Purpost_Speed_Rec[j];
-                                Purpost_Speed_Rec[j] = Purpost_Speed_Rec[i];
-                                Purpost_Speed_Rec[i] = tmp;
+                                val_list tmp;
+                                if( Purpost_Speed_Rec[i].cnt > Purpost_Speed_Rec[j].cnt)
+                                {
+                                    tmp =  Purpost_Speed_Rec[j];
+                                    Purpost_Speed_Rec[j] = Purpost_Speed_Rec[i];
+                                    Purpost_Speed_Rec[i] = tmp;
+                                }
                             }
                         }
+                        break;
                     }
-                    break;
                 }
-            }
-            if(!speed_found_eq)
-            {
-                Purpost_Speed_Rec[speed_index_cnt].val = Purpost_Speed_New;
-                Purpost_Speed_Rec[speed_index_cnt].cnt = 1;
-                speed_index_cnt++;
-            }
-        }
-        else
-        {
-            Purpost_Speed_Rec[0].val = Purpost_Speed_New;
-            Purpost_Speed_Rec[0].cnt = 1;
-            speed_index_cnt = 1;
-        }
-        break;
-    case 0x40:
-        if(RX_data == 0x55)
-        {
-            trans_begin = TRUE;
-            speed_index_cnt = 0;
-            angle_index_cnt = 0;
-            time_out_cnt = 0;
-        }
-        else if(RX_data == 0x5b) //检测到传输分割标志
-        {
-            servo_p1_received = FALSE;
-        }
-        else if(RX_data == 0x6a) //检测到传输结束，更新数据
-        {
-            if(trans_begin)
-            {
-                trans_begin = FALSE;
-                Purpost_Speed_New = Purpost_Speed_Rec[0].val;
-                Servo_Duty_New = Servo_Duty_Rec[0].val;
-                if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || (Purpost_Speed_New > 0 && Purpost_Speed < 0))
+                if(!speed_found_eq)
                 {
-                    Purpost_Speed = Purpost_Speed_New;
+                    Purpost_Speed_Rec[speed_index_cnt].val = Purpost_Speed_New;
+                    Purpost_Speed_Rec[speed_index_cnt].cnt = 1;
+                    speed_index_cnt++;
                 }
-                else
-                {        
-                    // 防止速度变化过大，感觉没啥用
-                    if(Purpost_Speed_New - Purpost_Speed > 500)
-                    {
-                        Purpost_Speed_New = Purpost_Speed + 500;
-                    }
-                    else if(Purpost_Speed_New - Purpost_Speed < -500)
-                    {
-                        Purpost_Speed_New = Purpost_Speed - 500;
-                    }
-                    Purpost_Speed = Purpost_Speed_New;
-                }
-                Servo_Duty = Servo_Duty_New;
+            }
+            else
+            {
+                Purpost_Speed_Rec[0].val = Purpost_Speed_New;
+                Purpost_Speed_Rec[0].cnt = 1;
+                speed_index_cnt = 1;
             }
         }
-        break;
-    case 0x80:
-        last_servo_data = RX_data & 0x3f;
-        servo_p1_received = TRUE;
-        break;
-    case 0xc0:
-        if(servo_p1_received)
+        getting_speed_crc = FALSE;
+        return;
+    }
+    else if(getting_angle_crc && servo_p1_received)
+    {
+        if(RX_data == crc8(servo_code,2))
         {
-            data = RX_data & 0x3f;
-            Servo_Duty_New = last_servo_data & 0x20 ?
-                    Ui_Servo_Mid - (((last_servo_data & 0x1f) << 6) + data) :
-                    Ui_Servo_Mid + (((last_servo_data & 0x1f) << 6) + data);
+            angle_needs_update = TRUE;
+            data = servo_code[1] & 0x3f;
+            Servo_Duty_New = servo_code[0] & 0x20 ?
+                    Ui_Servo_Mid - (((servo_code[0] & 0x3f & 0x1f) << 6) + data) :
+                    Ui_Servo_Mid + (((servo_code[0] & 0x3f & 0x1f) << 6) + data);
             if(angle_index_cnt > 0)
             {
                 for(int i = 0; i < angle_index_cnt; i++)
@@ -219,11 +211,119 @@ void uart_data_decoder(void)
                 Servo_Duty_Rec[0].cnt = 1;
                 angle_index_cnt = 1;
             }
+            angle_crc_p1_ok = FALSE;
         }
-        servo_p1_received = FALSE;
+        getting_angle_crc = FALSE;
+        return;
+    }
+    switch (flag_code)
+    {
+    case 0x00:
+        if(speed_trans_begin)
+        {
+            speed_code = RX_data;
+        }
+        break;
+    case 0x40:
+        if(RX_data == 0x55 && !servo_trans_begin)
+        {
+            servo_p1_received = FALSE;
+            servo_trans_begin = TRUE;
+            speed_trans_begin = FALSE;
+            speed_index_cnt = 0;
+            angle_index_cnt = 0;
+            time_out_cnt = 0;
+            getting_speed_crc = FALSE;
+            angle_crc_p1_ok = FALSE;
+            getting_angle_crc = FALSE;
+            getting_servo_data = FALSE;
+            angle_needs_update = FALSE;
+        }
+        else if(RX_data == 0x6b && !speed_trans_begin)
+        {
+            servo_p1_received = FALSE;
+            servo_trans_begin = FALSE;
+            speed_trans_begin = TRUE;
+            speed_index_cnt = 0;
+            angle_index_cnt = 0;
+            time_out_cnt = 0;
+            getting_speed_crc = FALSE;
+            angle_crc_p1_ok = FALSE;
+            getting_angle_crc = FALSE;
+            getting_servo_data = FALSE;
+            speed_needs_update = FALSE;
+        }
+        else if(RX_data == 0x5b) //检测到传输分割标志
+        {
+            servo_p1_received = FALSE;
+            getting_speed_crc = FALSE;
+            angle_crc_p1_ok = FALSE;
+            getting_angle_crc = FALSE;
+            getting_servo_data = FALSE;
+        }
+        else if(RX_data == 0x6c)
+        {
+            getting_speed_crc = TRUE;
+        }
+        else if(RX_data == 0x6f)
+        {
+            getting_angle_crc = TRUE;
+        }
+        else if(RX_data == 0x5c) //检测到舵机传输结束，更新数据
+        {
+            if(servo_trans_begin)
+            {
+                servo_trans_begin = FALSE;
+                if(angle_needs_update)
+                {
+                    Servo_Duty = Servo_Duty_Rec[0].val;
+                }
+            }
+        }
+        else if(RX_data == 0x6a) //检测到速度传输结束，更新数据
+        {
+            if(speed_trans_begin)
+            {
+                speed_trans_begin = FALSE;
+                if(speed_needs_update)
+                {
+                    Purpost_Speed_New = Purpost_Speed_Rec[0].val;
+                    if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || (Purpost_Speed_New > 0 && Purpost_Speed < 0))
+                    {
+                        Purpost_Speed = Purpost_Speed_New;
+                    }
+                    else
+                    {        
+                        // 防止速度变化过大，感觉没啥用
+                        if(Purpost_Speed_New - Purpost_Speed > 500)
+                        {
+                            Purpost_Speed_New = Purpost_Speed + 500;
+                        }
+                        else if(Purpost_Speed_New - Purpost_Speed < -500)
+                        {
+                            Purpost_Speed_New = Purpost_Speed - 500;
+                        }
+                        Smoothed_Purpost_Speed = 0.3 * Smoothed_Purpost_Speed + 0.7 * Purpost_Speed_New;
+                        Purpost_Speed = Purpost_Speed_New;
+                    }
+                }
+            }
+        }
+        break;
+    case 0x80:
+        if(servo_trans_begin && !servo_p1_received)
+        {
+            servo_p1_received = TRUE;
+            servo_code[0] = RX_data;
+        }
+        break;
+    case 0xc0:
+        if(servo_trans_begin && servo_p1_received)
+        {
+            servo_code[1] = RX_data;
+        }
         break;
     }
-    last_rx_data = RX_data;
 }
 /*************************************************************************
 *  函数名称：void UART0_RX_IRQHandler(void)
@@ -285,7 +385,7 @@ void UART1_RX_IRQHandler(void)
                 then     数据位
                 末字节：  校验位
             */
-    //        uint8_t receiveBuff[USB_FRAME_LENMAX];//存放数据寄存器
+    //        unsigned char receiveBuff[USB_FRAME_LENMAX];//存放数据寄存器
     //        RX_data = UART_GetChar(UART0);      //临时接受一个字节
     //
     //
@@ -315,8 +415,8 @@ void UART1_RX_IRQHandler(void)
     //        //接收帧完毕
     //        if((UART_Rev >= USB_FRAME_LENMAX || UART_Rev >= receiveBuff[2]) && UART_Rev > USB_FRAME_LENMIN)
     //        {
-    //            uint8_t check = 0;
-    //            uint8_t length = USB_FRAME_LENMIN;
+    //            unsigned char check = 0;
+    //            unsigned char length = USB_FRAME_LENMIN;
     //
     //            length = receiveBuff[2];
     //            for(int i=0;i<length-1;i++)
