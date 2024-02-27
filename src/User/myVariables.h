@@ -13,7 +13,7 @@
 #include "myctrl.h"
 //全局变量
 #define Ui_Stop_Flag 1                //停车标志位
-#define Ui_Servo_Mid 4720                //舵机中值对应的数值占空比
+#define Ui_Servo_Mid 4800                 //舵机中值对应的数值占空比
 #define Ui_Servo_Interval 1200          //舵机左右转动的阈值
 /****************PID结构体******************/
 extern volatile _pid_param_t  Speed_pid;          //电机控制PID
@@ -40,6 +40,7 @@ extern int Deviation;
 extern volatile float Enc_Total;                   //里程
 
 extern volatile sint16 Purpost_Speed;               //目标速度    （以EncSpeed为单位）
+extern volatile sint16 Smoothed_Purpost_Speed; 
 
 extern volatile unsigned char RX_data;                     //串口接收数据
 extern volatile int LED_test;

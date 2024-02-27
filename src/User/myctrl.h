@@ -18,10 +18,11 @@
 
 #define SPEED_CTRL_COMMON 1
 #define SPEED_CTRL_BRAKE 2
-#define BRAKE_ERROR_THRESH 50
-#define BRAKE_SPEED_THRESH 120
+#define BRAKE_ERROR_THRESH 70
+#define BRAKE_SPEED_THRESH_MAX 80
+#define BRAKE_SPEED_THRESH_MIN 80
 
-float Get_Uk(sint16 target, sint16 current, unsigned char *mode);
+float Get_Uk(void);
 //void Update_Purpost(void);
 //void New_Update_Purpost(void);
 void ChangeCita(int cita);

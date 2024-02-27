@@ -37,6 +37,7 @@ volatile sint16 Enc_Val;                  //编码器获得车轮速度
 volatile float Enc_Total;                   //里程
 
 volatile sint16 Purpost_Speed;               //目标速度    （以EncSpeed为单位）
+volatile sint16 Smoothed_Purpost_Speed;               //目标速度    （以EncSpeed为单位）
 
 volatile unsigned char RX_data;                     //串口接收数据
 volatile uint8 UART_Rev = 0;                        //UART接收标志

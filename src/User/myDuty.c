@@ -31,9 +31,9 @@ inline void Set_Servo_Duty(uint16 duty)
   * @date    2022.4.20
   */
 
-inline void Set_Motor_Duty(short duty, unsigned char mode)
+inline void Set_Motor_Duty(short duty)
 {
-    switch (mode)
+    switch (Speed_cur_mode)
     {
     case SPEED_CTRL_COMMON :
         if(duty >= 0)

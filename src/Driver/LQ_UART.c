@@ -72,256 +72,165 @@ const void *UartIrqFuncPointer[12] = {&UART0_RX_IRQHandler, &UART0_TX_IRQHandler
 */
 #define POLYNOMIAL 0x07
 #define INITIAL_REMAINDER 0x00
+// 使用0x07生成的表
+const unsigned char crc_table[] = {
+    0x00,0x07,0x0e,0x09,0x1c,0x1b,0x12,0x15,0x38,0x3f,0x36,0x31,0x24,0x23,0x2a,0x2d,
+    0x70,0x77,0x7e,0x79,0x6c,0x6b,0x62,0x65,0x48,0x4f,0x46,0x41,0x54,0x53,0x5a,0x5d,
+    0xe0,0xe7,0xee,0xe9,0xfc,0xfb,0xf2,0xf5,0xd8,0xdf,0xd6,0xd1,0xc4,0xc3,0xca,0xcd,
+    0x90,0x97,0x9e,0x99,0x8c,0x8b,0x82,0x85,0xa8,0xaf,0xa6,0xa1,0xb4,0xb3,0xba,0xbd,
+    0xc7,0xc0,0xc9,0xce,0xdb,0xdc,0xd5,0xd2,0xff,0xf8,0xf1,0xf6,0xe3,0xe4,0xed,0xea,
+    0xb7,0xb0,0xb9,0xbe,0xab,0xac,0xa5,0xa2,0x8f,0x88,0x81,0x86,0x93,0x94,0x9d,0x9a,
+    0x27,0x20,0x29,0x2e,0x3b,0x3c,0x35,0x32,0x1f,0x18,0x11,0x16,0x03,0x04,0x0d,0x0a,
+    0x57,0x50,0x59,0x5e,0x4b,0x4c,0x45,0x42,0x6f,0x68,0x61,0x66,0x73,0x74,0x7d,0x7a,
+    0x89,0x8e,0x87,0x80,0x95,0x92,0x9b,0x9c,0xb1,0xb6,0xbf,0xb8,0xad,0xaa,0xa3,0xa4,
+    0xf9,0xfe,0xf7,0xf0,0xe5,0xe2,0xeb,0xec,0xc1,0xc6,0xcf,0xc8,0xdd,0xda,0xd3,0xd4,
+    0x69,0x6e,0x67,0x60,0x75,0x72,0x7b,0x7c,0x51,0x56,0x5f,0x58,0x4d,0x4a,0x43,0x44,
+    0x19,0x1e,0x17,0x10,0x05,0x02,0x0b,0x0c,0x21,0x26,0x2f,0x28,0x3d,0x3a,0x33,0x34,
+    0x4e,0x49,0x40,0x47,0x52,0x55,0x5c,0x5b,0x76,0x71,0x78,0x7f,0x6a,0x6d,0x64,0x63,
+    0x3e,0x39,0x30,0x37,0x22,0x25,0x2c,0x2b,0x06,0x01,0x08,0x0f,0x1a,0x1d,0x14,0x13,
+    0xae,0xa9,0xa0,0xa7,0xb2,0xb5,0xbc,0xbb,0x96,0x91,0x98,0x9f,0x8a,0x8d,0x84,0x83,
+    0xde,0xd9,0xd0,0xd7,0xc2,0xc5,0xcc,0xcb,0xe6,0xe1,0xe8,0xef,0xfa,0xfd,0xf4,0xf3
+};
 
-unsigned char crc8(unsigned char *data, size_t length) 
-{
+unsigned char crc8(unsigned char* data, size_t length) {
     unsigned char crc = INITIAL_REMAINDER;
-    for (size_t byte = 0; byte < length; ++byte) {
-        crc ^= data[byte]; // XOR byte into least sig. byte of crc
-
-        for (unsigned char bit = 8; bit > 0; --bit) { // Loop over each bit
-            if (crc & 0x80) { // If the uppermost bit is 1...
-                crc = (crc << 1) ^ POLYNOMIAL; // Shift left and XOR with the polynomial
-            } else {
-                crc <<= 1; // Just shift left
-            }
-        }
+    while(length--){
+        crc = crc_table[crc ^ *data++];
     }
-
-    // Note: XOR with 0x00 can be omitted as it does not change the result
-    return crc; // Final remainder is the CRC result
+    return crc;
 }
+//unsigned char crc8(unsigned char *data, size_t length)
+//{
+//    unsigned char crc = INITIAL_REMAINDER;
+//    for (size_t byte = 0; byte < length; ++byte) {
+//        crc ^= data[byte]; // XOR byte into least sig. byte of crc
+//
+//        for (unsigned char bit = 8; bit > 0; --bit) { // Loop over each bit
+//            if (crc & 0x80) { // If the uppermost bit is 1...
+//                crc = (crc << 1) ^ POLYNOMIAL; // Shift left and XOR with the polynomial
+//            } else {
+//                crc <<= 1; // Just shift left
+//            }
+//        }
+//    }
+//
+//    // Note: XOR with 0x00 can be omitted as it does not change the result
+//    return crc; // Final remainder is the CRC result
+//}
+#define SPEED_TRANS_BEGIN 0xb6
+#define ANGLE_TRANS_BEGIN 0xd9
+#define TRANS_SPLIT 0xcc
 
 void uart_data_decoder(void)
 {
-    unsigned char data,flag_code;
+    unsigned char data;
     static unsigned char servo_code[2] = {0};
     static unsigned char speed_code = 0;
-    static val_list Purpost_Speed_Rec[20] = {0};
-    static val_list Servo_Duty_Rec[20] = {0};
-    static boolean servo_p1_received = FALSE;
     static boolean servo_trans_begin = FALSE;
     static boolean speed_trans_begin = FALSE;
-    static int speed_index_cnt = 0, angle_index_cnt = 0;
-    static boolean getting_speed_crc = FALSE;
-    static boolean getting_angle_crc = FALSE;
-    static boolean angle_crc_p1_ok = FALSE;
-    static boolean getting_servo_data = FALSE;
-    static boolean angle_needs_update = FALSE;
-    static boolean speed_needs_update = FALSE;
+    static int trans_index = 0;
     sint16 Purpost_Speed_New, Servo_Duty_New;
-    boolean speed_found_eq = FALSE, angle_found_eq = FALSE;
-    flag_code = RX_data & 0xc0;
-    
-    if(getting_speed_crc)
+
+    if(servo_trans_begin)
     {
-        if(RX_data == crc8(&speed_code,1))
+        switch (trans_index)
         {
-            speed_needs_update = TRUE;
-            data = speed_code & 0x1f;
-            Purpost_Speed_New = data * 22; // +- 0 ~ 682
-            if(speed_code & 0x20)
-            {
-                Purpost_Speed_New = -Purpost_Speed_New;
-            }
-            if(speed_index_cnt > 0)
-            {
-                for(int i = 0; i < speed_index_cnt; i++)
-                {
-                    if(Purpost_Speed_New == Purpost_Speed_Rec[i].val)
-                    {
-                        Purpost_Speed_Rec[i].cnt++;
-                        speed_found_eq = TRUE;
-                        if(i >= 1)
-                        {
-                            for(int j = 0; j < i; j++)
-                            {
-                                val_list tmp;
-                                if( Purpost_Speed_Rec[i].cnt > Purpost_Speed_Rec[j].cnt)
-                                {
-                                    tmp =  Purpost_Speed_Rec[j];
-                                    Purpost_Speed_Rec[j] = Purpost_Speed_Rec[i];
-                                    Purpost_Speed_Rec[i] = tmp;
-                                }
-                            }
-                        }
-                        break;
-                    }
-                }
-                if(!speed_found_eq)
-                {
-                    Purpost_Speed_Rec[speed_index_cnt].val = Purpost_Speed_New;
-                    Purpost_Speed_Rec[speed_index_cnt].cnt = 1;
-                    speed_index_cnt++;
-                }
-            }
-            else
-            {
-                Purpost_Speed_Rec[0].val = Purpost_Speed_New;
-                Purpost_Speed_Rec[0].cnt = 1;
-                speed_index_cnt = 1;
-            }
-        }
-        getting_speed_crc = FALSE;
-        return;
-    }
-    else if(getting_angle_crc && servo_p1_received)
-    {
-        if(RX_data == crc8(servo_code,2))
-        {
-            angle_needs_update = TRUE;
-            data = servo_code[1] & 0x3f;
-            Servo_Duty_New = servo_code[0] & 0x20 ?
-                    Ui_Servo_Mid - (((servo_code[0] & 0x3f & 0x1f) << 6) + data) :
-                    Ui_Servo_Mid + (((servo_code[0] & 0x3f & 0x1f) << 6) + data);
-            if(angle_index_cnt > 0)
-            {
-                for(int i = 0; i < angle_index_cnt; i++)
-                {
-                    if(Servo_Duty_New == Servo_Duty_Rec[i].val)
-                    {
-                        Servo_Duty_Rec[i].cnt++;
-                        angle_found_eq = TRUE;
-                        if(i >= 1)
-                        {
-                            for(int j = 0; j < i; j++)
-                            {
-                                val_list tmp;
-                                if(Servo_Duty_Rec[i].cnt > Servo_Duty_Rec[j].cnt)
-                                {
-                                    tmp =  Servo_Duty_Rec[j];
-                                    Servo_Duty_Rec[j] = Servo_Duty_Rec[i];
-                                    Servo_Duty_Rec[i] = tmp;
-                                }
-                            }
-                        }
-                        break;
-                    }
-                }
-                if(!angle_found_eq)
-                {
-                    Servo_Duty_Rec[angle_index_cnt].val = Servo_Duty_New;
-                    Servo_Duty_Rec[angle_index_cnt].cnt = 1;
-                    angle_index_cnt++;
-                }
-            }
-            else
-            {
-                Servo_Duty_Rec[0].val = Servo_Duty_New;
-                Servo_Duty_Rec[0].cnt = 1;
-                angle_index_cnt = 1;
-            }
-            angle_crc_p1_ok = FALSE;
-        }
-        getting_angle_crc = FALSE;
-        return;
-    }
-    switch (flag_code)
-    {
-    case 0x00:
-        if(speed_trans_begin)
-        {
-            speed_code = RX_data;
-        }
-        break;
-    case 0x40:
-        if(RX_data == 0x55 && !servo_trans_begin)
-        {
-            servo_p1_received = FALSE;
-            servo_trans_begin = TRUE;
-            speed_trans_begin = FALSE;
-            speed_index_cnt = 0;
-            angle_index_cnt = 0;
-            time_out_cnt = 0;
-            getting_speed_crc = FALSE;
-            angle_crc_p1_ok = FALSE;
-            getting_angle_crc = FALSE;
-            getting_servo_data = FALSE;
-            angle_needs_update = FALSE;
-        }
-        else if(RX_data == 0x6b && !speed_trans_begin)
-        {
-            servo_p1_received = FALSE;
-            servo_trans_begin = FALSE;
-            speed_trans_begin = TRUE;
-            speed_index_cnt = 0;
-            angle_index_cnt = 0;
-            time_out_cnt = 0;
-            getting_speed_crc = FALSE;
-            angle_crc_p1_ok = FALSE;
-            getting_angle_crc = FALSE;
-            getting_servo_data = FALSE;
-            speed_needs_update = FALSE;
-        }
-        else if(RX_data == 0x5b) //检测到传输分割标志
-        {
-            servo_p1_received = FALSE;
-            getting_speed_crc = FALSE;
-            angle_crc_p1_ok = FALSE;
-            getting_angle_crc = FALSE;
-            getting_servo_data = FALSE;
-        }
-        else if(RX_data == 0x6c)
-        {
-            getting_speed_crc = TRUE;
-        }
-        else if(RX_data == 0x6f)
-        {
-            getting_angle_crc = TRUE;
-        }
-        else if(RX_data == 0x5c) //检测到舵机传输结束，更新数据
-        {
-            if(servo_trans_begin)
-            {
-                servo_trans_begin = FALSE;
-                if(angle_needs_update)
-                {
-                    Servo_Duty = Servo_Duty_Rec[0].val;
-                }
-            }
-        }
-        else if(RX_data == 0x6a) //检测到速度传输结束，更新数据
-        {
-            if(speed_trans_begin)
-            {
-                speed_trans_begin = FALSE;
-                if(speed_needs_update)
-                {
-                    Purpost_Speed_New = Purpost_Speed_Rec[0].val;
-                    if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || (Purpost_Speed_New > 0 && Purpost_Speed < 0))
-                    {
-                        Purpost_Speed = Purpost_Speed_New;
-                    }
-                    else
-                    {        
-                        // 防止速度变化过大，感觉没啥用
-                        if(Purpost_Speed_New - Purpost_Speed > 500)
-                        {
-                            Purpost_Speed_New = Purpost_Speed + 500;
-                        }
-                        else if(Purpost_Speed_New - Purpost_Speed < -500)
-                        {
-                            Purpost_Speed_New = Purpost_Speed - 500;
-                        }
-                        Smoothed_Purpost_Speed = 0.3 * Smoothed_Purpost_Speed + 0.7 * Purpost_Speed_New;
-                        Purpost_Speed = Purpost_Speed_New;
-                    }
-                }
-            }
-        }
-        break;
-    case 0x80:
-        if(servo_trans_begin && !servo_p1_received)
-        {
-            servo_p1_received = TRUE;
+        case 1:
             servo_code[0] = RX_data;
-        }
-        break;
-    case 0xc0:
-        if(servo_trans_begin && servo_p1_received)
-        {
+            trans_index ++;
+            break;
+        case 2:
             servo_code[1] = RX_data;
+            trans_index ++;
+            break;
+        case 3 :
+        case 4 :
+        case 5 :
+            if(RX_data == crc8(servo_code,2))
+            {
+                data = servo_code[1] & 0x3f;
+                Servo_Duty_New = servo_code[0] & 0x20 ?
+                        Ui_Servo_Mid - (((servo_code[0] & 0x3f & 0x1f) << 6) + data) :
+                        Ui_Servo_Mid + (((servo_code[0] & 0x3f & 0x1f) << 6) + data);
+                Servo_Duty = Servo_Duty_New;
+            }
+            trans_index ++;
+            break;
+        default:
+            goto flag_judgement;
+            break;
         }
+    }
+    else if(speed_trans_begin)
+    {
+        switch (trans_index)
+        {
+        case 1:
+            speed_code = RX_data;
+            trans_index ++;
+            break;
+        case 2 :
+        case 3 :
+        case 4 :
+           if(RX_data == crc8(&speed_code,1))
+            {
+                data = speed_code & 0x1f;
+                Purpost_Speed_New = data * 22; // +- 0 ~ 682
+                if(speed_code & 0x20)
+                {
+                    Purpost_Speed_New = -Purpost_Speed_New;
+                }
+                // 防止速度变化过大，感觉没啥用
+                // if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || (Purpost_Speed_New > 0 && Purpost_Speed < 0))
+                // {
+                //     Purpost_Speed = Purpost_Speed_New;
+                // }
+                // else
+                // {        
+                //     if(Purpost_Speed_New - Purpost_Speed > 500)
+                //     {
+                //         Purpost_Speed_New = Purpost_Speed + 500;
+                //     }
+                //     else if(Purpost_Speed_New - Purpost_Speed < -500)
+                //     {
+                //         Purpost_Speed_New = Purpost_Speed - 500;
+                //     }
+                // }
+                Smoothed_Purpost_Speed = 0.3 * Smoothed_Purpost_Speed + 0.7 * Purpost_Speed_New;
+                Purpost_Speed = Purpost_Speed_New;
+            }
+            trans_index ++;
+            break;
+        default:
+            goto flag_judgement;
+            break;  
+        } 
+    }
+    else
+    {
+         goto flag_judgement;
+    }
+
+    return;
+flag_judgement:
+    switch (RX_data)
+    {
+    case ANGLE_TRANS_BEGIN:
+        servo_trans_begin = TRUE;
+        speed_trans_begin = FALSE;
+        time_out_cnt = 0;
+        trans_index = 1;
+        break;
+    case SPEED_TRANS_BEGIN:
+        servo_trans_begin = FALSE;
+        speed_trans_begin = TRUE;
+        time_out_cnt = 0;
+        trans_index = 1;
+        break;
+    case TRANS_SPLIT:
+        trans_index = 1;
+        break;
+    default:
         break;
     }
 }
