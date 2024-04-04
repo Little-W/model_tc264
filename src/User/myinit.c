@@ -70,6 +70,7 @@ void Motor_PID_Init(void)
     Speed_pid.current_error     = 0;
     Speed_pid.last_error        = 0;
     Speed_pid.far_error         = 0;
+    Speed_pid.integral          = 0;
     Speed_pid.error_m           = Ui_PID_Error_Thr;
 
     Speed_brake_pid.kp                = Ui_Motor_Brake_P;
@@ -86,6 +87,7 @@ void Motor_PID_Init(void)
     Speed_brake_pid.current_error     = 0;
     Speed_brake_pid.last_error        = 0;
     Speed_brake_pid.far_error         = 0;
+    Speed_brake_pid.integral          = 0;
     Speed_brake_pid.error_m           = Ui_PID_Error_Thr;   
 
 }

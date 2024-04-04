@@ -99,37 +99,27 @@ unsigned char crc8(unsigned char* data, size_t length) {
     }
     return crc;
 }
-//unsigned char crc8(unsigned char *data, size_t length)
-//{
-//    unsigned char crc = INITIAL_REMAINDER;
-//    for (size_t byte = 0; byte < length; ++byte) {
-//        crc ^= data[byte]; // XOR byte into least sig. byte of crc
-//
-//        for (unsigned char bit = 8; bit > 0; --bit) { // Loop over each bit
-//            if (crc & 0x80) { // If the uppermost bit is 1...
-//                crc = (crc << 1) ^ POLYNOMIAL; // Shift left and XOR with the polynomial
-//            } else {
-//                crc <<= 1; // Just shift left
-//            }
-//        }
-//    }
-//
-//    // Note: XOR with 0x00 can be omitted as it does not change the result
-//    return crc; // Final remainder is the CRC result
-//}
+
 #define SPEED_TRANS_BEGIN 0xb6
 #define ANGLE_TRANS_BEGIN 0xd9
-#define TRANS_SPLIT 0xcc
 
 void uart_data_decoder(void)
 {
     unsigned char data;
     static unsigned char servo_code[2] = {0};
-    static unsigned char speed_code = 0;
+    static unsigned char speed_code[2] = {0};
+    static val_list Purpost_Speed_Rec[20] = {0};
+    static val_list Servo_Duty_Rec[20] = {0};
     static boolean servo_trans_begin = FALSE;
     static boolean speed_trans_begin = FALSE;
     static int trans_index = 0;
+    static int speed_index_cnt = 0, angle_index_cnt = 0;
     sint16 Purpost_Speed_New, Servo_Duty_New;
+    boolean speed_found_eq = FALSE, angle_found_eq = FALSE;
+    boolean angle_need_update = FALSE;
+    boolean speed_need_update = FALSE;
+    // unsigned char code = 0;
+    // unsigned char bit_cnt = 0;
 
     if(servo_trans_begin)
     {
@@ -145,14 +135,62 @@ void uart_data_decoder(void)
             break;
         case 3 :
         case 4 :
-        case 5 :
+            data = servo_code[1] & 0x3f;
+            Servo_Duty_New = servo_code[0] & 0x20 ?
+                        Ui_Servo_Mid - (((servo_code[0] & 0x3f & 0x1f) << 6) + data) * 2 :
+                        Ui_Servo_Mid + (((servo_code[0] & 0x3f & 0x1f) << 6) + data) * 2;
+            if(angle_index_cnt > 0)
+            {
+                for(int i = 0; i < angle_index_cnt; i++)
+                {
+                    if(Servo_Duty_New == Servo_Duty_Rec[i].val)
+                    {
+                        Servo_Duty_Rec[i].cnt++;
+                        angle_found_eq = TRUE;
+                        if(i >= 1)
+                        {
+                            for(int j = 0; j < i; j++)
+                            {
+                                val_list tmp;
+                                if(Servo_Duty_Rec[i].cnt > Servo_Duty_Rec[j].cnt)
+                                {
+                                    tmp =  Servo_Duty_Rec[j];
+                                    Servo_Duty_Rec[j] = Servo_Duty_Rec[i];
+                                    Servo_Duty_Rec[i] = tmp;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+                if(!angle_found_eq)
+                {
+                    Servo_Duty_Rec[angle_index_cnt].val = Servo_Duty_New;
+                    Servo_Duty_Rec[angle_index_cnt].cnt = 1;
+                    angle_index_cnt++;
+                }
+            }
+            else
+            {
+                Servo_Duty_Rec[0].val = Servo_Duty_New;
+                Servo_Duty_Rec[0].cnt = 1;
+                angle_index_cnt = 1;
+            }
+            if(Servo_Duty_Rec[0].cnt >= 20)
+            {
+                angle_need_update = TRUE;
+            }
             if(RX_data == crc8(servo_code,2))
             {
-                data = servo_code[1] & 0x3f;
-                Servo_Duty_New = servo_code[0] & 0x20 ?
-                        Ui_Servo_Mid - (((servo_code[0] & 0x3f & 0x1f) << 6) + data) :
-                        Ui_Servo_Mid + (((servo_code[0] & 0x3f & 0x1f) << 6) + data);
                 Servo_Duty = Servo_Duty_New;
+                angle_index_cnt = 0;
+                Set_Servo_Duty(Servo_Duty);
+            }
+            else if(angle_need_update)
+            {
+                angle_index_cnt = 0;
+                Servo_Duty = Servo_Duty_Rec[0].val;
+                Set_Servo_Duty(Servo_Duty);
             }
             trans_index ++;
             break;
@@ -166,38 +204,112 @@ void uart_data_decoder(void)
         switch (trans_index)
         {
         case 1:
-            speed_code = RX_data;
+            speed_code[0] = RX_data;
             trans_index ++;
             break;
-        case 2 :
+        case 2:
+            speed_code[1] = RX_data;
+            trans_index ++;
+            break;
         case 3 :
         case 4 :
-           if(RX_data == crc8(&speed_code,1))
+            data = speed_code[1] & 0x3f;
+            Purpost_Speed_New = speed_code[0] & 0x20 ? 
+                    - (((speed_code[0] & 0x3f & 0x1f) << 6) + data) :
+                    (((speed_code[0] & 0x3f & 0x1f) << 6) + data);  // -682 ~ 682
+            if(speed_index_cnt > 0)
             {
-                data = speed_code & 0x1f;
-                Purpost_Speed_New = data * 22; // +- 0 ~ 682
-                if(speed_code & 0x20)
+                for(int i = 0; i < speed_index_cnt; i++)
                 {
-                    Purpost_Speed_New = -Purpost_Speed_New;
+                    if(Purpost_Speed_New == Purpost_Speed_Rec[i].val)
+                    {
+                        Purpost_Speed_Rec[i].cnt++;
+                        speed_found_eq = TRUE;
+                        if(i >= 1)
+                        {
+                            for(int j = 0; j < i; j++)
+                            {
+                                val_list tmp;
+                                if( Purpost_Speed_Rec[i].cnt > Purpost_Speed_Rec[j].cnt)
+                                {
+                                    tmp =  Purpost_Speed_Rec[j];
+                                    Purpost_Speed_Rec[j] = Purpost_Speed_Rec[i];
+                                    Purpost_Speed_Rec[i] = tmp;
+                                }
+                            }
+                        }
+                        break;
+                    }
                 }
-                // 防止速度变化过大，感觉没啥用
-                // if(Purpost_Speed_New == 0 || (Purpost_Speed_New < 0 && Purpost_Speed > 0) || (Purpost_Speed_New > 0 && Purpost_Speed < 0))
-                // {
-                //     Purpost_Speed = Purpost_Speed_New;
-                // }
-                // else
-                // {        
-                //     if(Purpost_Speed_New - Purpost_Speed > 500)
-                //     {
-                //         Purpost_Speed_New = Purpost_Speed + 500;
-                //     }
-                //     else if(Purpost_Speed_New - Purpost_Speed < -500)
-                //     {
-                //         Purpost_Speed_New = Purpost_Speed - 500;
-                //     }
-                // }
-                Smoothed_Purpost_Speed = 0.3 * Smoothed_Purpost_Speed + 0.7 * Purpost_Speed_New;
-                Purpost_Speed = Purpost_Speed_New;
+                if(!speed_found_eq)
+                {
+                    Purpost_Speed_Rec[speed_index_cnt].val = Purpost_Speed_New;
+                    Purpost_Speed_Rec[speed_index_cnt].cnt = 1;
+                    speed_index_cnt++;
+                }
+            }
+            else
+            {
+                Purpost_Speed_Rec[0].val = Purpost_Speed_New;
+                Purpost_Speed_Rec[0].cnt = 1;
+                speed_index_cnt = 1;
+            }
+            if(Purpost_Speed_Rec[0].cnt >= 20)
+            {
+                speed_need_update = TRUE;
+            }
+            if(RX_data == crc8(speed_code,2))
+            {
+                speed_index_cnt = 0;
+                if(Purpost_Speed_New == 777)
+                {
+                    Speed_cur_mode = SPEED_CTRL_DISABLE_MOTOR;
+                }
+                else if(abs(Purpost_Speed_New) > 1000)
+                {
+                    Speed_cur_mode = SPEED_CTRL_DIRECT_DUTY;
+                    if(Purpost_Speed_New >= 0)
+                    {
+                        Speed_Duty = 100* (Purpost_Speed_New - 1000);
+                    }
+                    else
+                    {
+                        Speed_Duty = 100* (Purpost_Speed_New + 1000);
+                    }
+                }
+                else
+                {
+                    Speed_cur_mode = SPEED_CTRL_COMMON;
+                    Smoothed_Purpost_Speed = 0.3 * Smoothed_Purpost_Speed + 0.7 * Purpost_Speed_New;
+                    Purpost_Speed = Purpost_Speed_New;
+                }
+            }
+            else if(speed_need_update)
+            {
+                Purpost_Speed_New = Purpost_Speed_Rec[0].val;
+                speed_index_cnt = 0;
+                if(Purpost_Speed_New == 777)
+                {
+                    Speed_cur_mode = SPEED_CTRL_DISABLE_MOTOR;
+                }
+                else if(abs(Purpost_Speed_New) > 1000)
+                {
+                    Speed_cur_mode = SPEED_CTRL_DIRECT_DUTY;
+                    if(Purpost_Speed_New >= 0)
+                    {
+                        Speed_Duty = 100* (Purpost_Speed_New - 1000);
+                    }
+                    else
+                    {
+                        Speed_Duty = 100* (Purpost_Speed_New + 1000);
+                    }
+                }
+                else
+                {
+                    Speed_cur_mode = SPEED_CTRL_COMMON;
+                    Smoothed_Purpost_Speed = 0.3 * Smoothed_Purpost_Speed + 0.7 * Purpost_Speed_New;
+                    Purpost_Speed = Purpost_Speed_New;
+                }
             }
             trans_index ++;
             break;
@@ -210,7 +322,6 @@ void uart_data_decoder(void)
     {
          goto flag_judgement;
     }
-
     return;
 flag_judgement:
     switch (RX_data)
@@ -225,9 +336,6 @@ flag_judgement:
         servo_trans_begin = FALSE;
         speed_trans_begin = TRUE;
         time_out_cnt = 0;
-        trans_index = 1;
-        break;
-    case TRANS_SPLIT:
         trans_index = 1;
         break;
     default:

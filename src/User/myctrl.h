@@ -18,9 +18,14 @@
 
 #define SPEED_CTRL_COMMON 1
 #define SPEED_CTRL_BRAKE 2
+#define SPEED_CTRL_DISABLE_MOTOR 3
+#define SPEED_CTRL_DIRECT_DUTY 4
 #define BRAKE_ERROR_THRESH 70
 #define BRAKE_SPEED_THRESH_MAX 80
 #define BRAKE_SPEED_THRESH_MIN 80
+#define TRANS_COUNT 30
+
+extern volatile unsigned char Speed_cur_mode;
 
 float Get_Uk(void);
 //void Update_Purpost(void);

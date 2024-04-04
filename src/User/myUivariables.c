@@ -13,7 +13,7 @@ volatile float  Ui_Steer_P = 2.5f;                   //舵机P
 volatile float  Ui_Steer_D = 0.033f;                  //舵机D
 
 //加速电机
-volatile float  Ui_Motor_P = 18.0f;                 //电机P参数 3.0f 2 10 15.0 18.0 25
+volatile float  Ui_Motor_P = 30.0f;                 //电机P参数 3.0f 2 10 15.0 18.0 25
 volatile float  Ui_Motor_I = 0.8f; //0.8f;                  //电机I参数 0.38f 0.5 0.48 0.48 0.37 0.42
 volatile float  Ui_Motor_D = 0.0f;//0.02f;                 //电机D参数 0.0f
 //减速电机
@@ -26,7 +26,8 @@ volatile float  Ui_Motor_Brake_I = 0.0f;                  //刹车I参数
 volatile float  Ui_Motor_Brake_D = 0.0f;                 //刹车D参数
 volatile uint16 Ui_Motor_Brake_Max_Out = 10000;         
 
-volatile uint16 Ui_Motor_Max_Out = 5000;            //电机PID输出限幅
+volatile uint16 Ui_Motor_Max_Out_Pos = 9500;            //电机PID输出限幅
+volatile uint16 Ui_Motor_Max_Out_Neg = 8500;            //电机PID输出限幅
 
 volatile uint8  Ui_PID_Error_Thr = 105;               //对误差阈值（使用bang - bang）
 volatile uint8  Ui_Decelerate_K = 6;                 //用于图像看到弯道提前减速

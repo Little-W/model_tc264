@@ -5,6 +5,50 @@
 
 extern volatile _pid_param_t  Steer_pid;
 
+
+/*
+  * @brief    实现位置式PID
+  * @param    pid_param : PID参数结构体
+  * @param    error：当前误差
+  * @return   控制量
+  * @note     需要检查限幅是否合适
+  */
+float Position_PID(volatile _pid_param_t *pid_param, float error, float maxout_pos, float maxout_neg)
+{
+    pid_param->current_error = error;//目标-实际
+    // if(pid_param->integral == 0)
+    // {
+    //   pid_param->integral = error;
+    // }
+    // else
+    // {
+    //   pid_param->integral = 0.01 * error + 0.99 * pid_param->integral;
+    // }
+    pid_param->integral = 0.01 * error + 0.99 * pid_param->integral;
+    //PID系数计算
+    pid_param->pid_out_p = pid_param->kp * pid_param->current_error;
+    pid_param->pid_out_i = pid_param->ki * pid_param->integral;
+    pid_param->pid_out_d = pid_param->kd * (pid_param->current_error - pid_param->last_error);
+
+    //PID输出的计算和限幅
+    pid_param->pid_out = pid_param->pid_out_p + pid_param->pid_out_i + pid_param->pid_out_d;
+    pid_param->pid_out = Constrain_Float(pid_param->pid_out,-maxout_neg,maxout_pos);
+    //误差更新
+    pid_param->last_error = pid_param->current_error;
+    //急刹车
+    
+    // if(pid_param->current_error < (-pid_param->error_m))//限幅
+    // {
+    //     return (-maxout);
+    // }
+    // else
+    // {
+    //     return pid_param->pid_out;
+    // }
+    
+    return pid_param->pid_out;
+}
+
 /*
   * @brief    实现增量式PID
   * @param    pid_param : PID参数结构体
@@ -13,7 +57,7 @@ extern volatile _pid_param_t  Steer_pid;
   * @note     需要检查限幅是否合适
   * @date     2022 4 20
   */
-float Incremental_PID(volatile _pid_param_t *pid_param, float error, float maxout)
+float Incremental_PID(volatile _pid_param_t *pid_param, float error, float maxout_pos, float maxout_neg)
 {
     pid_param->current_error = error;//目标-实际
     //PID系数计算
@@ -24,7 +68,7 @@ float Incremental_PID(volatile _pid_param_t *pid_param, float error, float maxou
     //PID输出的计算和限幅
     pid_param->pid_out_increment = pid_param->pid_out_p + pid_param->pid_out_i + pid_param->pid_out_d;
     pid_param->pid_out += pid_param->pid_out_increment;
-    pid_param->pid_out = Constrain_Float(pid_param->pid_out,-maxout,maxout);
+    pid_param->pid_out = Constrain_Float(pid_param->pid_out,-maxout_neg,maxout_pos);
     //误差更新
     pid_param->far_error = pid_param->last_error;
     pid_param->last_error = pid_param->current_error;

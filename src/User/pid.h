@@ -41,10 +41,11 @@ typedef struct
     float       last_error;                 //上一次的偏差值
     float       far_error;                  //前两次的偏差值
     float       error_m;                    //误差阈值
-
+    float       integral;                   //积分
 } _pid_param_t;
 
-float Incremental_PID(volatile _pid_param_t * pid_param, float error, float maxout);
+float Incremental_PID(volatile _pid_param_t * pid_param, float error, float maxout_pos, float maxout_neg);
+float Position_PID(volatile _pid_param_t *pid_param, float error, float maxout_pos, float maxout_neg);
 float Servo_PID(volatile _pid_param_t * pid_param, float maxout);
 float Brake_PID(volatile _pid_param_t *pid_param, float error, float maxout);
 #endif /* SRC_APPSW_TRICORE_USER_LQ_PID_H_ */

@@ -55,21 +55,21 @@ void CancelSetToFixedSpeed(void)
 float Get_Uk(void)
 {
     sint16 Ek = Purpost_Speed - Enc_Val;
-    if(Purpost_Speed == 0)
-    {
-        Speed_cur_mode = SPEED_CTRL_BRAKE;
-        return Brake_PID(&Speed_brake_pid, abs(Ek) * 10, Ui_Motor_Brake_Max_Out);
-    }
-    if((Ek < -BRAKE_ERROR_THRESH && Enc_Val > BRAKE_SPEED_THRESH_MIN && Enc_Val < BRAKE_SPEED_THRESH_MAX))
-    {
-        Speed_cur_mode = SPEED_CTRL_BRAKE;
-        return Brake_PID(&Speed_brake_pid, -Ek, Ui_Motor_Brake_Max_Out);
-    }
-    else 
-    {
-        Speed_cur_mode = SPEED_CTRL_COMMON;
-        return Incremental_PID(&Speed_pid, Purpost_Speed - Enc_Val , Ui_Motor_Max_Out);
-    }
+    // if(Purpost_Speed == 0)
+    // {
+    //     Speed_cur_mode = SPEED_CTRL_BRAKE;
+    //     return Brake_PID(&Speed_brake_pid, abs(Ek) * 10, Ui_Motor_Brake_Max_Out);
+    // }
+    // if((Ek < -BRAKE_ERROR_THRESH && Enc_Val > BRAKE_SPEED_THRESH_MIN && Enc_Val < BRAKE_SPEED_THRESH_MAX))
+    // {
+    //     Speed_cur_mode = SPEED_CTRL_BRAKE;
+    //     return Brake_PID(&Speed_brake_pid, -Ek, Ui_Motor_Brake_Max_Out);
+    // }
+    // else 
+    // {
+        // Speed_cur_mode = SPEED_CTRL_COMMON;
+        return Incremental_PID(&Speed_pid, Purpost_Speed - Enc_Val , Ui_Motor_Max_Out_Pos, Ui_Motor_Max_Out_Neg);
+    // }
 }
 
 //小车出库
@@ -104,8 +104,12 @@ void send_enc_speed(void)
         uart_send_data_1 |= (speed_tmp >> 6) & 0x1f;
         uart_send_data_2 |= speed_tmp & 0x3f;
     }
-    UART_PutChar(UART2,uart_send_data_1);
-    UART_PutChar(UART1,uart_send_data_1);
-    UART_PutChar(UART2,uart_send_data_2);
-    UART_PutChar(UART1,uart_send_data_2);
+    for(int i = 0; i < TRANS_COUNT; i++)
+    {
+        UART_PutChar(UART2,uart_send_data_1);
+        // UART_PutChar(UART1,uart_send_data_1);
+        UART_PutChar(UART2,uart_send_data_2);
+        // UART_PutChar(UART1,uart_send_data_2);
+    }
+
 }

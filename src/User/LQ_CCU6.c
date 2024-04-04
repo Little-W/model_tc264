@@ -32,6 +32,7 @@ const void *Ccu6IrqFuncPointer[4] = {&CCU60_CH0_IRQHandler, &CCU60_CH1_IRQHandle
 
 void CCU60_CH0_IRQHandler (void)
 {
+    static cnt = 0;
     /* 开启CPU中断  否则中断不可嵌套 */
     IfxCpu_enableInterrupts();
     // 清除中断标志
@@ -50,8 +51,43 @@ void CCU60_CH0_IRQHandler (void)
     //sprintf(txt, "%d %d\n", Purpost_Speed, Servo_Duty);
     //UART_PutStr(UART0, txt);
     Enc_Val =  ENC_GetCounter(ENC2_InPut_P33_7); //10ms中断周期
-    Speed_Duty = (short)Get_Uk();
-    Set_Motor_Duty(Speed_Duty);//调节占空比
+    if(abs(Enc_Val) <= 10 && Purpost_Speed == 0)
+    {
+        if(cnt < 50)
+        {
+            cnt ++;
+        }
+        else
+        {
+            Set_Motor_Duty(0);//调节占空比
+            return;
+        }
+    }
+    else
+    {
+        cnt = 0;
+    }
+    if(Speed_cur_mode == SPEED_CTRL_COMMON)
+    {
+        Speed_Duty = (short)Get_Uk();
+        if(abs(Speed_Duty) > 200)
+        {
+            Set_Motor_Duty(Speed_Duty);//调节占空比
+        }
+        else
+        {
+            Set_Motor_Duty(0);
+        }
+        
+    }
+    else if(Speed_cur_mode == SPEED_CTRL_DIRECT_DUTY)
+    {
+        Set_Motor_Duty(Speed_Duty);//调节占空比
+    }
+    else if(Speed_cur_mode == SPEED_CTRL_DISABLE_MOTOR)
+    {
+        Set_Motor_Duty(0);
+    }
     send_enc_speed();
 
 //    Set_Servo_Duty(600);
@@ -70,7 +106,7 @@ void CCU61_CH0_IRQHandler (void)
     /* 用户代码 */
     //Update_Purpost();//7ms中断，先获得值
 
-    Set_Servo_Duty(Servo_Duty);
+    // Set_Servo_Duty(Servo_Duty);
 
 }
 

@@ -13,8 +13,8 @@
 #include "myctrl.h"
 //全局变量
 #define Ui_Stop_Flag 1                //停车标志位
-#define Ui_Servo_Mid 4800                 //舵机中值对应的数值占空比
-#define Ui_Servo_Interval 1200          //舵机左右转动的阈值
+#define Ui_Servo_Mid 7600                 //舵机中值对应的数值占空比
+#define Ui_Servo_Interval 2266          //舵机左右转动的阈值
 /****************PID结构体******************/
 extern volatile _pid_param_t  Speed_pid;          //电机控制PID
 extern volatile _pid_param_t  Speed_brake_pid;
@@ -22,8 +22,6 @@ extern volatile _pid_param_t  Steer_pid;           //舵机控制PID
 
 /****************电机、舵机、编码器******************/
 extern volatile short Speed_Duty;               //电机设置占空比
-
-extern volatile unsigned char Speed_cur_mode;
 
 extern volatile uint16 countTime;
 
