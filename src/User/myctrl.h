@@ -24,6 +24,7 @@
 #define BRAKE_SPEED_THRESH_MAX 80
 #define BRAKE_SPEED_THRESH_MIN 80
 #define TRANS_COUNT 30
+#define SPEED_MAX 700
 
 extern volatile unsigned char Speed_cur_mode;
 

@@ -26,6 +26,7 @@ QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ*/
 #include <LQ_GPIO.h>
 #include <LQ_GPIO_LED.h>
 #include <LQ_STM.h>
+#include <string.h>
 #include "myVariables.h"
 
 #define ASC_TX_BUFFER_SIZE 64        //发送缓冲区长度
@@ -100,100 +101,215 @@ unsigned char crc8(unsigned char* data, size_t length) {
     return crc;
 }
 
-#define SPEED_TRANS_BEGIN 0xb6
-#define ANGLE_TRANS_BEGIN 0xd9
+typedef struct {
+    uint16_t corrected_data; // 更正后的数据
+    uint16_t origin_data;    // 原始接收的数据
+    uint16_t error_pos;      // 错误位的位置，如果为0，则表示无错误
+} HammingDecodeResult;
+
+HammingDecodeResult hammingDecode(uint16_t code) {
+    HammingDecodeResult result;
+
+    uint16_t origin_data = 0;
+    origin_data |= (code >> 2) & 0x1; // D1
+    origin_data |= (code >> 3) & 0xE; // D2-D4, 二进制的1110等于十六进制的E
+    origin_data |= (code >> 4) & 0x7F0; // D5-D11, 二进制的11111110000等于十六进制的7F0
+    result.origin_data = origin_data;
+
+    // 计算校验位
+    uint8_t p1 = ((code >> 0) & 1) ^ ((code >> 2) & 1) ^ ((code >> 4) & 1) ^ ((code >> 6) & 1) ^ ((code >> 8) & 1) ^ ((code >> 10) & 1) ^ ((code >> 12) & 1) ^ ((code >> 14) & 1);
+    uint8_t p2 = ((code >> 1) & 1) ^ ((code >> 2) & 1) ^ ((code >> 5) & 1) ^ ((code >> 6) & 1) ^ ((code >> 9) & 1) ^ ((code >> 10) & 1) ^ ((code >> 13) & 1) ^ ((code >> 14) & 1);
+    uint8_t p4 = ((code >> 3) & 1) ^ ((code >> 4) & 1) ^ ((code >> 5) & 1) ^ ((code >> 6) & 1) ^ ((code >> 11) & 1) ^ ((code >> 12) & 1) ^ ((code >> 13) & 1) ^ ((code >> 14) & 1);
+    uint8_t p8 = ((code >> 7) & 1) ^ ((code >> 8) & 1) ^ ((code >> 9) & 1) ^ ((code >> 10) & 1) ^ ((code >> 11) & 1) ^ ((code >> 12) & 1) ^ ((code >> 13) & 1) ^ ((code >> 14) & 1);
+
+
+    // 检测错误位
+    uint16_t error_pos = (p8 << 3) | (p4 << 2) | (p2 << 1) | p1;
+    result.error_pos = error_pos; // 设置错误位置
+
+    if (error_pos) {
+        // 更正错误位
+        code ^= (1 << (error_pos - 1));
+    }
+
+    // 提取数据位
+    uint16_t corrected_data = 0;
+    corrected_data |= (code >> 2) & 0x1; // D1
+    corrected_data |= (code >> 3) & 0xE; // D2-D4
+    corrected_data |= (code >> 4) & 0x7F0; // D5-D11
+    result.corrected_data = corrected_data; // 设置更正后的数据
+
+    return result;
+}
+
+
+#define BATCH_TRANS_BEGIN 2
+// #define SPEED_TRANS_BEGIN 0xf3
+#define SINGEL_TRANS_BEGIN 0
+#define TRANS_OVER 1
+#define TRANS_SPLIT 3
+
+// #define BATCH_TRANS_BEGIN 0xf8
+// // #define SPEED_TRANS_BEGIN 0xf3
+// #define SINGEL_TRANS_BEGIN 0xc0
+// #define TRANS_OVER 0xff
+// #define TRANS_SPLIT 0xc7
+
+void Set_Purpost_Speed(sint16 Purpost_Speed_New)
+{
+    if(Purpost_Speed_New == 777)
+    {
+        Speed_cur_mode = SPEED_CTRL_DISABLE_MOTOR;
+    }
+    else if(abs(Purpost_Speed_New) > 900)
+    {
+        Speed_cur_mode = SPEED_CTRL_DIRECT_DUTY;
+        if(Purpost_Speed_New >= 0)
+        {
+            Speed_Duty = 100* (Purpost_Speed_New - 900);
+        }
+        else
+        {
+            Speed_Duty = 100* (Purpost_Speed_New + 900);
+        }
+    }
+    else
+    {
+        Speed_cur_mode = SPEED_CTRL_COMMON;
+        Smoothed_Purpost_Speed = 0.3 * Smoothed_Purpost_Speed + 0.7 * Purpost_Speed_New;
+        Purpost_Speed = Purpost_Speed_New;
+    }
+}                
 
 void uart_data_decoder(void)
 {
-    unsigned char data;
-    static unsigned char servo_code[2] = {0};
-    static unsigned char speed_code[2] = {0};
+    static HammingDecodeResult result;
+    static uint8_t crc_code;
+    static uint16_t data_code = 0;
     static val_list Purpost_Speed_Rec[20] = {0};
     static val_list Servo_Duty_Rec[20] = {0};
     static boolean servo_trans_begin = FALSE;
     static boolean speed_trans_begin = FALSE;
     static int trans_index = 0;
     static int speed_index_cnt = 0, angle_index_cnt = 0;
+    static split_cnt = 0,batch_start_cnt = 0;
+    static int data_cnt = 0;
     sint16 Purpost_Speed_New, Servo_Duty_New;
     boolean speed_found_eq = FALSE, angle_found_eq = FALSE;
     boolean angle_need_update = FALSE;
     boolean speed_need_update = FALSE;
+    uint8_t cr_data[2] = {0};
+    uint8_t ori_data[2] = {0};
     // unsigned char code = 0;
     // unsigned char bit_cnt = 0;
+
+    if(RX_data & 0xc0)
+    {
+        goto flag_judgement;
+    }   
 
     if(servo_trans_begin)
     {
         switch (trans_index)
         {
-        case 1:
-            servo_code[0] = RX_data;
-            trans_index ++;
-            break;
         case 2:
-            servo_code[1] = RX_data;
+            data_code = (RX_data & 0x3f) << 9;
             trans_index ++;
             break;
-        case 3 :
-        case 4 :
-            data = servo_code[1] & 0x3f;
-            Servo_Duty_New = servo_code[0] & 0x20 ?
-                        Ui_Servo_Mid - (((servo_code[0] & 0x3f & 0x1f) << 6) + data) * 2 :
-                        Ui_Servo_Mid + (((servo_code[0] & 0x3f & 0x1f) << 6) + data) * 2;
-            if(angle_index_cnt > 0)
+        case 3:
+            data_code |= ((RX_data & 0x3f) << 3);
+            trans_index ++;
+            break;
+        case 4:
+            data_code |= ((RX_data & 0x38) >> 3);
+            crc_code = ((RX_data & 0x3) << 6);
+            result = hammingDecode(data_code);
+            trans_index ++;
+            break;
+        case 5:
+            crc_code |= (RX_data & 0x3f);
+            if(result.error_pos <= 15)
             {
-                for(int i = 0; i < angle_index_cnt; i++)
+                ori_data[0] = result.origin_data >> 8;
+                ori_data[1] = result.origin_data & 0xff;
+                if(crc8(ori_data,2) == crc_code)
                 {
-                    if(Servo_Duty_New == Servo_Duty_Rec[i].val)
+                    Servo_Duty = result.origin_data & 0x400 ?
+                        Ui_Servo_Mid - (result.origin_data & 0x3ff) * 2 :
+                        Ui_Servo_Mid + (result.origin_data & 0x3ff) * 2;
+                    angle_index_cnt = 0;
+                    memset(Servo_Duty_Rec, 0, sizeof(Servo_Duty_Rec));
+                    Set_Servo_Duty(Servo_Duty);   
+                }    
+                else
+                {
+                    cr_data[0] = result.corrected_data >> 8;
+                    cr_data[1] = result.corrected_data & 0xff;
+                    if(crc8(cr_data,2) == crc_code)
                     {
-                        Servo_Duty_Rec[i].cnt++;
-                        angle_found_eq = TRUE;
-                        if(i >= 1)
-                        {
-                            for(int j = 0; j < i; j++)
-                            {
-                                val_list tmp;
-                                if(Servo_Duty_Rec[i].cnt > Servo_Duty_Rec[j].cnt)
-                                {
-                                    tmp =  Servo_Duty_Rec[j];
-                                    Servo_Duty_Rec[j] = Servo_Duty_Rec[i];
-                                    Servo_Duty_Rec[i] = tmp;
-                                }
-                            }
-                        }
-                        break;
+                        Servo_Duty = result.corrected_data & 0x400 ?
+                            Ui_Servo_Mid - (result.corrected_data & 0x3ff) * 2 :
+                            Ui_Servo_Mid + (result.corrected_data & 0x3ff) * 2;
+                        angle_index_cnt = 0;
+                        memset(Servo_Duty_Rec, 0, sizeof(Servo_Duty_Rec));
+                        Set_Servo_Duty(Servo_Duty);    
+                    }
+                    else if(Servo_Duty_Rec[0].cnt >= 3)
+                    {
+                        Servo_Duty = Servo_Duty_Rec[0].val;
+                        angle_index_cnt = 0;
+                        memset(Servo_Duty_Rec, 0, sizeof(Servo_Duty_Rec));
+                        Set_Servo_Duty(Servo_Duty);
                     }
                 }
-                if(!angle_found_eq)
+                
+                Servo_Duty_New = result.corrected_data & 0x400 ?
+                        Ui_Servo_Mid - (result.corrected_data & 0x3ff) * 2 :
+                        Ui_Servo_Mid + (result.corrected_data & 0x3ff) * 2;
+
+                if(angle_index_cnt > 0)
                 {
-                    Servo_Duty_Rec[angle_index_cnt].val = Servo_Duty_New;
-                    Servo_Duty_Rec[angle_index_cnt].cnt = 1;
-                    angle_index_cnt++;
+                    for(int i = 0; i < angle_index_cnt; i++)
+                    {
+                        if(Servo_Duty_New == Servo_Duty_Rec[i].val)
+                        {
+                            Servo_Duty_Rec[i].cnt++;
+                            angle_found_eq = TRUE;
+                            if(i >= 1)
+                            {
+                                for(int j = 0; j < i; j++)
+                                {
+                                    val_list tmp;
+                                    if(Servo_Duty_Rec[i].cnt > Servo_Duty_Rec[j].cnt)
+                                    {
+                                        tmp =  Servo_Duty_Rec[j];
+                                        Servo_Duty_Rec[j] = Servo_Duty_Rec[i];
+                                        Servo_Duty_Rec[i] = tmp;
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    if(!angle_found_eq)
+                    {
+                        Servo_Duty_Rec[angle_index_cnt].val = Servo_Duty_New;
+                        Servo_Duty_Rec[angle_index_cnt].cnt = 1;
+                        angle_index_cnt++;
+                    }
                 }
-            }
-            else
-            {
-                Servo_Duty_Rec[0].val = Servo_Duty_New;
-                Servo_Duty_Rec[0].cnt = 1;
-                angle_index_cnt = 1;
-            }
-            if(Servo_Duty_Rec[0].cnt >= 20)
-            {
-                angle_need_update = TRUE;
-            }
-            if(RX_data == crc8(servo_code,2))
-            {
-                Servo_Duty = Servo_Duty_New;
-                angle_index_cnt = 0;
-                Set_Servo_Duty(Servo_Duty);
-            }
-            else if(angle_need_update)
-            {
-                angle_index_cnt = 0;
-                Servo_Duty = Servo_Duty_Rec[0].val;
-                Set_Servo_Duty(Servo_Duty);
+                else
+                {
+                    Servo_Duty_Rec[0].val = Servo_Duty_New;
+                    Servo_Duty_Rec[0].cnt = 1;
+                    angle_index_cnt = 1;
+                }
             }
             trans_index ++;
             break;
+        case 1:
+            trans_index ++;
+            goto flag_judgement;
         default:
             goto flag_judgement;
             break;
@@ -203,116 +319,106 @@ void uart_data_decoder(void)
     {
         switch (trans_index)
         {
-        case 1:
-            speed_code[0] = RX_data;
-            trans_index ++;
-            break;
         case 2:
-            speed_code[1] = RX_data;
+            data_code = (RX_data & 0x3f) << 9;
             trans_index ++;
             break;
-        case 3 :
-        case 4 :
-            data = speed_code[1] & 0x3f;
-            Purpost_Speed_New = speed_code[0] & 0x20 ? 
-                    - (((speed_code[0] & 0x3f & 0x1f) << 6) + data) :
-                    (((speed_code[0] & 0x3f & 0x1f) << 6) + data);  // -682 ~ 682
-            if(speed_index_cnt > 0)
+        case 3:
+            data_code |= ((RX_data & 0x3f) << 3);
+            trans_index ++;
+            break;
+        case 4:
+            data_code |= ((RX_data & 0x38) >> 3);
+            crc_code = ((RX_data & 0x3) << 6);
+            result = hammingDecode(data_code);
+            trans_index ++;
+            break;
+        case 5:
+            crc_code |= (RX_data & 0x3f);
+            if(result.error_pos <= 15)
             {
-                for(int i = 0; i < speed_index_cnt; i++)
+                ori_data[0] = result.origin_data >> 8;
+                ori_data[1] = result.origin_data & 0xff;
+                if(crc8(ori_data,2) == crc_code)
                 {
-                    if(Purpost_Speed_New == Purpost_Speed_Rec[i].val)
+                    Purpost_Speed_New = result.origin_data & 0x400 ? 
+                                        - (result.origin_data & 0x3ff) :
+                                        (result.origin_data & 0x3ff);
+                    speed_index_cnt = 0;
+                    memset(Purpost_Speed_Rec, 0, sizeof(Purpost_Speed_Rec));
+                    Set_Purpost_Speed(Purpost_Speed_New);
+                }                
+                else
+                {
+                    
+                    cr_data[0] = result.corrected_data >> 8;
+                    cr_data[1] = result.corrected_data & 0xff;
+
+                    if(crc8(cr_data,2) == crc_code)
                     {
-                        Purpost_Speed_Rec[i].cnt++;
-                        speed_found_eq = TRUE;
-                        if(i >= 1)
+                        Purpost_Speed_New = result.corrected_data & 0x400 ? 
+                                            - (result.corrected_data & 0x3ff) :
+                                            (result.corrected_data & 0x3ff);
+                        speed_index_cnt = 0;
+                        memset(Purpost_Speed_Rec, 0, sizeof(Purpost_Speed_Rec));
+                        Set_Purpost_Speed(Purpost_Speed_New);
+                    }
+                    else if(Purpost_Speed_Rec[0].cnt >= 4)
+                    {
+                        Purpost_Speed_New = Purpost_Speed_Rec[0].val;
+                        speed_index_cnt = 0;
+                        memset(Purpost_Speed_Rec, 0, sizeof(Purpost_Speed_Rec));
+                        Set_Purpost_Speed(Purpost_Speed_New);
+                    }
+                }
+                
+                Purpost_Speed_New = result.corrected_data & 0x400 ? 
+                                        - (result.corrected_data & 0x3ff) :
+                                        (result.corrected_data & 0x3ff);
+
+                if(speed_index_cnt > 0)
+                {
+                    for(int i = 0; i < speed_index_cnt; i++)
+                    {
+                        if(Purpost_Speed_New == Purpost_Speed_Rec[i].val)
                         {
-                            for(int j = 0; j < i; j++)
+                            Purpost_Speed_Rec[i].cnt++;
+                            speed_found_eq = TRUE;
+                            if(i >= 1)
                             {
-                                val_list tmp;
-                                if( Purpost_Speed_Rec[i].cnt > Purpost_Speed_Rec[j].cnt)
+                                for(int j = 0; j < i; j++)
                                 {
-                                    tmp =  Purpost_Speed_Rec[j];
-                                    Purpost_Speed_Rec[j] = Purpost_Speed_Rec[i];
-                                    Purpost_Speed_Rec[i] = tmp;
+                                    val_list tmp;
+                                    if( Purpost_Speed_Rec[i].cnt > Purpost_Speed_Rec[j].cnt)
+                                    {
+                                        tmp =  Purpost_Speed_Rec[j];
+                                        Purpost_Speed_Rec[j] = Purpost_Speed_Rec[i];
+                                        Purpost_Speed_Rec[i] = tmp;
+                                    }
                                 }
                             }
+                            break;
                         }
-                        break;
                     }
-                }
-                if(!speed_found_eq)
-                {
-                    Purpost_Speed_Rec[speed_index_cnt].val = Purpost_Speed_New;
-                    Purpost_Speed_Rec[speed_index_cnt].cnt = 1;
-                    speed_index_cnt++;
-                }
-            }
-            else
-            {
-                Purpost_Speed_Rec[0].val = Purpost_Speed_New;
-                Purpost_Speed_Rec[0].cnt = 1;
-                speed_index_cnt = 1;
-            }
-            if(Purpost_Speed_Rec[0].cnt >= 20)
-            {
-                speed_need_update = TRUE;
-            }
-            if(RX_data == crc8(speed_code,2))
-            {
-                speed_index_cnt = 0;
-                if(Purpost_Speed_New == 777)
-                {
-                    Speed_cur_mode = SPEED_CTRL_DISABLE_MOTOR;
-                }
-                else if(abs(Purpost_Speed_New) > 1000)
-                {
-                    Speed_cur_mode = SPEED_CTRL_DIRECT_DUTY;
-                    if(Purpost_Speed_New >= 0)
+                    if(!speed_found_eq)
                     {
-                        Speed_Duty = 100* (Purpost_Speed_New - 1000);
-                    }
-                    else
-                    {
-                        Speed_Duty = 100* (Purpost_Speed_New + 1000);
+                        Purpost_Speed_Rec[speed_index_cnt].val = Purpost_Speed_New;
+                        Purpost_Speed_Rec[speed_index_cnt].cnt = 1;
+                        speed_index_cnt++;
                     }
                 }
                 else
                 {
-                    Speed_cur_mode = SPEED_CTRL_COMMON;
-                    Smoothed_Purpost_Speed = 0.3 * Smoothed_Purpost_Speed + 0.7 * Purpost_Speed_New;
-                    Purpost_Speed = Purpost_Speed_New;
-                }
-            }
-            else if(speed_need_update)
-            {
-                Purpost_Speed_New = Purpost_Speed_Rec[0].val;
-                speed_index_cnt = 0;
-                if(Purpost_Speed_New == 777)
-                {
-                    Speed_cur_mode = SPEED_CTRL_DISABLE_MOTOR;
-                }
-                else if(abs(Purpost_Speed_New) > 1000)
-                {
-                    Speed_cur_mode = SPEED_CTRL_DIRECT_DUTY;
-                    if(Purpost_Speed_New >= 0)
-                    {
-                        Speed_Duty = 100* (Purpost_Speed_New - 1000);
-                    }
-                    else
-                    {
-                        Speed_Duty = 100* (Purpost_Speed_New + 1000);
-                    }
-                }
-                else
-                {
-                    Speed_cur_mode = SPEED_CTRL_COMMON;
-                    Smoothed_Purpost_Speed = 0.3 * Smoothed_Purpost_Speed + 0.7 * Purpost_Speed_New;
-                    Purpost_Speed = Purpost_Speed_New;
+                    Purpost_Speed_Rec[0].val = Purpost_Speed_New;
+                    Purpost_Speed_Rec[0].cnt = 1;
+                    speed_index_cnt = 1;
                 }
             }
             trans_index ++;
             break;
+        case 1:
+            trans_index ++;
+            goto flag_judgement;
         default:
             goto flag_judgement;
             break;  
@@ -320,27 +426,92 @@ void uart_data_decoder(void)
     }
     else
     {
-         goto flag_judgement;
+        goto flag_judgement;
     }
+
     return;
+
 flag_judgement:
-    switch (RX_data)
+    if(RX_data & 0xc0)
     {
-    case ANGLE_TRANS_BEGIN:
-        servo_trans_begin = TRUE;
-        speed_trans_begin = FALSE;
-        time_out_cnt = 0;
-        trans_index = 1;
-        break;
-    case SPEED_TRANS_BEGIN:
-        servo_trans_begin = FALSE;
-        speed_trans_begin = TRUE;
-        time_out_cnt = 0;
-        trans_index = 1;
-        break;
-    default:
-        break;
+        uint8_t con_code = 0,cnt = 0;
+        for(int i = 0; i <= 2; i++)
+        {
+            if(RX_data & (1 << i))
+            {
+                cnt++;
+            }
+        }
+        if(cnt >= 2)
+        {
+            con_code |= 1;
+        }
+        cnt = 0;
+        for(int i = 3; i <= 5; i++)
+        {
+            if(RX_data & (1 << i))
+            {
+                cnt++;
+            }
+        }
+        if(cnt >= 2)
+        {
+            con_code |= 2;
+        }
+        switch (con_code)
+        {
+        case SINGEL_TRANS_BEGIN:
+            // servo_trans_begin = TRUE;
+            // speed_trans_begin = FALSE;
+            time_out_cnt = 0;
+            batch_start_cnt = 0;
+            split_cnt = 0;
+            trans_index = 2;
+            data_cnt++;
+            break;
+        // case SPEED_TRANS_BEGIN:
+        //     servo_trans_begin = FALSE;
+        //     speed_trans_begin = TRUE;
+        //     time_out_cnt = 0;
+        //     batch_start_cnt = 0;
+        //     split_cnt = 0;
+        //     trans_index = 2;
+        //     break;
+        // case TRANS_OVER:
+        //     trans_index = 1;
+        //     break;
+        case BATCH_TRANS_BEGIN:
+            batch_start_cnt ++;
+            if(batch_start_cnt >= 3)
+            {
+                servo_trans_begin = TRUE;
+                speed_trans_begin = FALSE;
+                trans_index = 0;
+                batch_start_cnt = 0;
+                data_cnt = 0;
+            }
+            break;
+        case TRANS_SPLIT:
+            split_cnt ++;
+            if(split_cnt >= 3)
+            {
+                servo_trans_begin = FALSE;
+                speed_trans_begin = TRUE;
+                trans_index = 0;
+                split_cnt = 0;
+                data_cnt = 0;
+            }
+            break;
+        default:
+            // if(trans_index == 5)
+            // {
+            //     split_cnt = 0;
+            //     trans_index = 2;
+            // }
+            break;
+        }  
     }
+
 }
 /*************************************************************************
 *  函数名称：void UART0_RX_IRQHandler(void)
