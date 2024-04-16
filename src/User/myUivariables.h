@@ -25,6 +25,7 @@ extern volatile float Ui_Motor_Brake_D;
 extern volatile uint16 Ui_Motor_Max_Out_Pos;
 extern volatile uint16 Ui_Motor_Max_Out_Neg;
 extern volatile uint16 Ui_Motor_Brake_Max_Out; 
+extern volatile uint16 Ui_Motor_Brake_Bias;
 extern volatile uint8 Ui_PID_Error_Thr;
 extern volatile uint8 Ui_Decelerate_K;
 extern volatile float Ui_Fixed_Diff_K;
@@ -40,7 +41,7 @@ extern volatile short Ui_Center_Lost_Speed;
 extern volatile short Ui_Stop_Speed;
 
 
-
+extern volatile boolean send_speed;
 
 
 #endif /* SRC_USER_MYUIVARIABLES_H_ */

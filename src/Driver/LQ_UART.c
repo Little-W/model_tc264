@@ -254,7 +254,7 @@ void uart_data_decoder(void)
                         memset(Servo_Duty_Rec, 0, sizeof(Servo_Duty_Rec));
                         Set_Servo_Duty(Servo_Duty);    
                     }
-                    else if(Servo_Duty_Rec[0].cnt >= 3)
+                    else if(Servo_Duty_Rec[0].cnt >= 6)
                     {
                         Servo_Duty = Servo_Duty_Rec[0].val;
                         angle_index_cnt = 0;
@@ -363,7 +363,7 @@ void uart_data_decoder(void)
                         memset(Purpost_Speed_Rec, 0, sizeof(Purpost_Speed_Rec));
                         Set_Purpost_Speed(Purpost_Speed_New);
                     }
-                    else if(Purpost_Speed_Rec[0].cnt >= 4)
+                    else if(Purpost_Speed_Rec[0].cnt >= 6)
                     {
                         Purpost_Speed_New = Purpost_Speed_Rec[0].val;
                         speed_index_cnt = 0;

@@ -88,7 +88,8 @@ void CCU60_CH0_IRQHandler (void)
     {
         Set_Motor_Duty(0);
     }
-    send_enc_speed();
+    // send_enc_speed();
+    send_speed = TRUE;
 
 //    Set_Servo_Duty(600);
 

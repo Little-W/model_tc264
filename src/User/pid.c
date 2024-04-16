@@ -97,6 +97,7 @@ float Brake_PID(volatile _pid_param_t *pid_param, float error, float maxout)
     //PID输出的计算和限幅
     pid_param->pid_out_increment = pid_param->pid_out_p + pid_param->pid_out_i + pid_param->pid_out_d;
     pid_param->pid_out += pid_param->pid_out_increment;
+     pid_param->pid_out += Ui_Motor_Brake_Bias;
     pid_param->pid_out = Constrain_Float(pid_param->pid_out,-maxout,maxout);
     //误差更新
     pid_param->last_error = pid_param->current_error;
